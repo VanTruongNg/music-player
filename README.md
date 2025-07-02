@@ -1,56 +1,56 @@
 # Music Player Monorepo
 
-## Tổng quan
+## Overview
 
-Đây là monorepo cho hệ thống Music Player, bao gồm nhiều service backend/frontend, triển khai kiến trúc microservices, hỗ trợ mở rộng, bảo trì và phát triển nhanh chóng. Mỗi service được tổ chức module hóa, dễ dàng tích hợp CI/CD, quản lý cấu hình, tài nguyên dùng chung.
+This is the monorepo for the Music Player system, including multiple backend/frontend services, following a microservices architecture for scalability, maintainability, and rapid development. Each service is modularized, making CI/CD integration, configuration management, and shared resource management easy.
 
-## Cấu trúc thư mục
+## Directory Structure
 
-- **auth-service/**: Microservice xác thực, quản lý người dùng, JWT, 2FA, session, tích hợp PostgreSQL, Redis, Kafka.
-- **(Các service khác sẽ bổ sung tại đây)**
-- **.git/**: Quản lý version code toàn bộ monorepo.
+- **auth-service/**: Authentication microservice, user management, JWT, 2FA, session, integrated with PostgreSQL, Redis, Kafka.
+- **(Other services will be added here)**
+- **.git/**: Version control for the entire monorepo.
 
-## Công nghệ sử dụng
+## Technologies Used
 
 - **Backend**: Golang, Gin, GORM, Redis, PostgreSQL, Kafka, Google Wire, Viper
-- **Frontend**: (Bổ sung khi có)
-- **DevOps**: Docker Compose, Goose, CI/CD pipeline (gợi ý: Github Actions, Gitlab CI)
-- **Quản lý package**: pnpm (yêu cầu cho frontend, chuẩn hóa monorepo)
+- **Frontend**: (To be added)
+- **DevOps**: Docker Compose, Goose, CI/CD pipeline (suggested: Github Actions, Gitlab CI)
+- **Package management**: pnpm (required for frontend, monorepo standard)
 
-## Hướng dẫn khởi động nhanh
+## Quick Start
 
 ```powershell
-# 1. Khởi động các service phụ trợ (Postgres, Redis, Kafka, ...)
+# 1. Start supporting services (Postgres, Redis, Kafka, ...)
 cd auth-service
 powershell -Command "docker compose up -d"
 
-# 2. Thiết lập biến môi trường cho từng service
+# 2. Set up environment variables for each service
 cp .env.example .env
 
-# 3. Chạy migration (nếu có)
+# 3. Run migration (if any)
 # goose up
 
-# 4. Build & run từng service
-# Ví dụ với auth-service:
+# 4. Build & run each service
+# Example for auth-service:
 powershell -Command "go run ./cmd/main.go"
 ```
 
-## Quy tắc phát triển
+## Development Rules
 
-- Tuân thủ chuẩn Elite Code Craftsman: DRY, SOLID, Separation of Concerns, KISS
-- Mỗi service cần có README.md riêng, mô tả chi tiết module, flow, sơ đồ Mermaid
-- Sử dụng husky để kiểm soát chất lượng commit/code
-- Ghi chú tiến trình vào `plan-tracking.md` hoặc `plan/`
+- Follow Elite Code Craftsman standards: DRY, SOLID, Separation of Concerns, KISS
+- Each service must have its own README.md describing modules, flows, Mermaid diagrams
+- Use husky to enforce commit/code quality
+- Track progress in `plan-tracking.md` or `plan/`
 
 ## Mermaid Diagrams
 
-### Tổng quan hệ thống
+### System Overview
 
 ```mermaid
 flowchart TD
     subgraph Backend
         A[auth-service]
-        B[service khác]
+        B[other service]
     end
     subgraph Infra
         DB[(PostgreSQL)]
@@ -64,6 +64,11 @@ flowchart TD
     B-->|...|...
 ```
 
+## Contact
+
+- Maintainer: Van Truong Nguyen
+- Email: truongnguyen060603@gmail.com
+
 ---
 
-_Đây là tài liệu tổng quan. Vui lòng đọc README.md của từng service để biết chi tiết cấu hình, API, flow nghiệp vụ._
+_This is the general documentation. Please read each service's README.md for detailed configuration, API, and business flow._
