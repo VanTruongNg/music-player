@@ -35,7 +35,7 @@ cp .env.example .env
 # 4. Build & run the service
 # (Requires Go >= 1.20)
 go mod tidy
-go run ./cmd/main.go
+go run ./cmd
 ```
 
 ## API Features
