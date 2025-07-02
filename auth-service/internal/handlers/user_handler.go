@@ -3,6 +3,7 @@ package handlers
 import (
 	"auth-service/internal/domain"
 	"auth-service/internal/dto"
+	"auth-service/internal/middleware"
 	"auth-service/internal/services"
 	tokenmanager "auth-service/internal/services/TokenManager"
 	"auth-service/internal/utils"
@@ -19,6 +20,32 @@ type UserHandler struct {
 
 func NewUserHandler(service services.UserService) *UserHandler {
 	return &UserHandler{service: service}
+}
+
+func (h *UserHandler) GetMe(c *gin.Context) {
+	userID, ok := middleware.MustGetUserID(c)
+	if !ok {
+		return
+	}
+
+	user, err := h.service.GetMe(c.Request.Context(), userID)
+	if err != nil {
+		if derr, ok := err.(*domain.DomainError); ok {
+			utils.Fail(c, derr.Status, derr.Code, derr.Message)
+			return
+		}
+		utils.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+
+	resp := dto.UserGetMeResponse{
+		ID:        user.ID,
+		Username:  user.Username,
+		Email:     user.Email,
+		FullName:  user.FullName,
+		CreatedAt: user.CreatedAt.Format(time.RFC3339),
+	}
+	utils.Success(c, http.StatusOK, resp)
 }
 
 func (h *UserHandler) Register(c *gin.Context) {
@@ -68,14 +95,23 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
+	c.SetCookie(
+		"xs",
+		refreshToken,
+		60*60*24*7,   // maxAge (7 days)
+		"/",          // path - send to all endpoints
+		"",           // domain - current domain
+		false,        // secure - false for localhost HTTP
+		true,         // httpOnly - true for security
+	)
+
 	resp := dto.UserLoginResponse{
-		ID:           user.ID,
-		Username:     user.Username,
-		Email:        user.Email,
-		FullName:     user.FullName,
-		CreatedAt:    user.CreatedAt.Format(time.RFC3339),
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
+		ID:          user.ID,
+		Username:    user.Username,
+		Email:       user.Email,
+		FullName:    user.FullName,
+		CreatedAt:   user.CreatedAt.Format(time.RFC3339),
+		AccessToken: accessToken,
 	}
 	utils.Success(c, http.StatusOK, resp)
 }

@@ -7,6 +7,7 @@ import (
 	"auth-service/configs"
 	"auth-service/internal/db"
 	"auth-service/internal/handlers"
+	"auth-service/internal/middleware"
 	"auth-service/internal/redis"
 	"auth-service/internal/repositories"
 	"auth-service/internal/routes"
@@ -35,6 +36,7 @@ func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg 
 		provideJWTConfig,
 		provideJWTService,
 		provideTokenManager,
+		middleware.NewAuthMiddleware,
 		services.NewUserService,
 		services.NewTwoFAService,
 		handlers.NewUserHandler,
@@ -47,14 +49,14 @@ func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg 
 	return nil, nil
 }
 
-func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.TwoFAHandler) *gin.Engine {
+func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.TwoFAHandler, authMiddleware *middleware.AuthMiddleware) *gin.Engine {
 	r := gin.Default()
 	api := r.Group("/api/v1")
 	api.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
-	routes.RegisterUserRoutes(api, userHandler)
-	routes.RegisterTwoFARoutes(api, twoFAHandler)
+	routes.RegisterUserRoutes(api, userHandler, authMiddleware)
+	routes.RegisterTwoFARoutes(api, twoFAHandler, authMiddleware)
 	return r
 }
 

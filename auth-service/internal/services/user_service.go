@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-// UserService defines business logic for user resource.
 type UserService interface {
+	GetMe(ctx context.Context, userID string) (*domain.User, error)
 	Register(ctx context.Context, req *dto.UserCreateRequest) (*domain.User, error)
 	Login(ctx context.Context, req *dto.UserLoginRequest) (*domain.User, string, string, error)
 }
@@ -22,13 +22,23 @@ type userService struct {
 	tokenManager tokenmanager.TokenManager
 }
 
-// NewUserService injects UserRepository, JWTService, and TokenManager for business logic.
 func NewUserService(userRepo repo.UserRepository, jwtService jwt.JWTService, tokenManager tokenmanager.TokenManager) UserService {
 	return &userService{
 		userRepo:     userRepo,
 		jwtService:   jwtService,
 		tokenManager: tokenManager,
 	}
+}
+
+func (s *userService) GetMe(ctx context.Context, userID string) (*domain.User, error) {
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, domain.ErrUserNotFound
+	}
+	return user, nil
 }
 
 func (s *userService) Register(ctx context.Context, req *dto.UserCreateRequest) (*domain.User, error) {

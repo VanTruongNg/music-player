@@ -2,6 +2,7 @@ package jwt
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -11,7 +12,9 @@ import (
 type JWTService interface {
 	SignAccessToken(userID string) (string, string, error)
 	SignRefreshToken(userID string) (string, string, error)
-	GetRefreshTTL() time.Duration // Get refresh token TTL from config
+	VerifyToken(tokenStr string, isRefresh bool) (*CustomClaims, error)
+	ExtractTokenFromHeader(authHeader string) (string, error)
+	GetRefreshTTL() time.Duration
 }
 
 type jwtService struct {
@@ -91,4 +94,23 @@ func (j *jwtService) VerifyToken(tokenStr string, isRefresh bool) (*CustomClaims
 
 func (j *jwtService) GetRefreshTTL() time.Duration {
 	return j.cfg.RefreshTTL
+}
+
+func (j *jwtService) ExtractTokenFromHeader(authHeader string) (string, error) {
+	if authHeader == "" {
+		return "", ErrTokenInvalid
+	}
+
+	const bearerPrefix = "Bearer "
+	if !strings.HasPrefix(authHeader, bearerPrefix) {
+		return "", ErrTokenInvalid
+	}
+
+	// Extract token part
+	token := strings.TrimPrefix(authHeader, bearerPrefix)
+	if token == "" {
+		return "", ErrTokenInvalid
+	}
+
+	return token, nil
 }
