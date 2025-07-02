@@ -1,6 +1,5 @@
 package dto
 
-// UserCreateRequest defines the expected payload for creating a user.
 type UserCreateRequest struct {
 	Username        string `json:"username" binding:"required,min=3,max=32"`
 	Email           string `json:"email" binding:"required,email"`
@@ -14,7 +13,6 @@ type UserLoginRequest struct {
 	Password string `json:"password" binding:"required,min=6,max=64"`
 }
 
-// UserRegisterResponse defines the response payload for a registered user.
 type UserRegisterResponse struct {
 	ID        string `json:"id"`
 	Username  string `json:"username"`
@@ -24,15 +22,19 @@ type UserRegisterResponse struct {
 	CreatedAt string `json:"createdAt"`
 }
 
-// UserLoginResponse defines the response payload for a successful login
-// Includes user info and JWT tokens
-// All fields are required for client authentication flows
 type UserLoginResponse struct {
-	ID           string `json:"id"`
-	Username     string `json:"username"`
-	Email        string `json:"email"`
-	FullName     string `json:"fullName"`
-	CreatedAt    string `json:"createdAt"`
-	AccessToken  string `json:"accessToken"`
-	RefreshToken string `json:"refreshToken"`
+	ID          string `json:"id"`
+	Username    string `json:"username"`
+	Email       string `json:"email"`
+	FullName    string `json:"fullName"`
+	CreatedAt   string `json:"createdAt"`
+	AccessToken string `json:"accessToken"`
+}
+
+type UserGetMeResponse struct {
+	ID        string `json:"id"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	FullName  string `json:"fullName"`
+	CreatedAt string `json:"createdAt"`
 }

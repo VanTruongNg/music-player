@@ -2,13 +2,14 @@ package routes
 
 import (
 	"auth-service/internal/handlers"
+	"auth-service/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
 // RegisterTwoFARoutes registers 2FA endpoints under user resource.
-func RegisterTwoFARoutes(rg *gin.RouterGroup, handler *handlers.TwoFAHandler) {
-	user := rg.Group("/users/:id/2fa")
+func RegisterTwoFARoutes(rg *gin.RouterGroup, handler *handlers.TwoFAHandler, authMiddleware *middleware.AuthMiddleware) {
+	user := rg.Group("/auth/:id/2fa", authMiddleware.RequireAuth())
 	{
 		user.POST("/setup", handler.Setup2FA)
 		user.POST("/enable", handler.Enable2FA)
