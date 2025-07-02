@@ -32,7 +32,7 @@ cp .env.example .env
 
 # 4. Build & run each service
 # Example for auth-service:
-powershell -Command "go run ./cmd/main.go"
+powershell -Command "go run ./cmd"
 ```
 
 ## Development Rules
