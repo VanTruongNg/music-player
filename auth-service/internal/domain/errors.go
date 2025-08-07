@@ -13,10 +13,11 @@ func (e *DomainError) Error() string {
 }
 
 var (
-	ErrEmailExists    = &DomainError{"EMAIL_EXISTS", "email already registered", http.StatusConflict}
-	ErrUsernameExists = &DomainError{"USERNAME_EXISTS", "username already registered", http.StatusConflict}
-	ErrUserNotFound   = &DomainError{"USER_NOT_FOUND", "user not found", http.StatusNotFound}
-	ErrTwoFAEnabled  = &DomainError{"TWO_FA_ENABLED", "2FA is already enabled for this user", http.StatusBadRequest}
-	ErrTwoFANotAvailable = &DomainError{"TWO_FA_NOT_AVAILABLE", "2FA is not available for this user", http.StatusBadRequest}
+	ErrEmailExists        = &DomainError{"EMAIL_EXISTS", "email already registered", http.StatusConflict}
+	ErrUsernameExists     = &DomainError{"USERNAME_EXISTS", "username already registered", http.StatusConflict}
+	ErrUserNotFound       = &DomainError{"USER_NOT_FOUND", "user not found", http.StatusNotFound}
+	ErrTwoFAEnabled       = &DomainError{"TWO_FA_ENABLED", "2FA is already enabled for this user", http.StatusBadRequest}
+	ErrTwoFANotAvailable  = &DomainError{"TWO_FA_NOT_AVAILABLE", "2FA is not available for this user", http.StatusBadRequest}
 	ErrInvalidCredentials = &DomainError{"INVALID_CREDENTIALS", "invalid email or password", http.StatusUnauthorized}
+	ErrNoUsersFound       = &DomainError{"NO_USERS_FOUND", "no users found", http.StatusNotFound}
 )

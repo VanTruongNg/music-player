@@ -10,6 +10,7 @@ import (
 	"auth-service/configs"
 	"auth-service/internal/db"
 	"auth-service/internal/handlers"
+	"auth-service/internal/kafka"
 	"auth-service/internal/middleware"
 	"auth-service/internal/redis"
 	"auth-service/internal/repositories"
@@ -19,13 +20,14 @@ import (
 	"auth-service/internal/utils/jwt"
 	"auth-service/internal/utils/redis"
 	"auth-service/internal/utils/twofa"
+	"github.com/IBM/sarama"
 	"github.com/gin-gonic/gin"
 	redis2 "github.com/redis/go-redis/v9"
 )
 
 // Injectors from wire.go:
 
-func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg *configs.RedisConfig) (*App, error) {
+func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg *configs.RedisConfig, kafkaCfg *configs.KafkaConfig) (*App, error) {
 	gormDB, err := db.NewGormDB(dbCfg)
 	if err != nil {
 		return nil, err
@@ -43,14 +45,29 @@ func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg 
 	twoFAHandler := handlers.NewTwoFAHandler(twoFAService)
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, redisUtil)
 	engine := provideRouter(userHandler, twoFAHandler, authMiddleware)
-	app := provideApp(engine)
+	grpcServer, err := provideGRPCServer(appCfg)
+	if err != nil {
+		return nil, err
+	}
+	syncProducer, err := kafka.NewKafkaProducer(kafkaCfg)
+	if err != nil {
+		return nil, err
+	}
+	consumerGroup, err := kafka.NewKafkaConsumer(kafkaCfg)
+	if err != nil {
+		return nil, err
+	}
+	app := provideApp(engine, grpcServer, syncProducer, consumerGroup)
 	return app, nil
 }
 
 // wire.go:
 
 type App struct {
-	Router *gin.Engine
+	Router        *gin.Engine
+	GRPCServer    *configs.GRPCServer
+	KafkaProducer sarama.SyncProducer
+	KafkaConsumer sarama.ConsumerGroup
 }
 
 func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.TwoFAHandler, authMiddleware *middleware.AuthMiddleware) *gin.Engine {
@@ -64,8 +81,17 @@ func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.Two
 	return r
 }
 
-func provideApp(router *gin.Engine) *App {
-	return &App{Router: router}
+func provideApp(router *gin.Engine, grpcServer *configs.GRPCServer, kafkaProducer sarama.SyncProducer, kafkaConsumer sarama.ConsumerGroup) *App {
+	return &App{
+		Router:        router,
+		GRPCServer:    grpcServer,
+		KafkaProducer: kafkaProducer,
+		KafkaConsumer: kafkaConsumer,
+	}
+}
+
+func provideGRPCServer(appCfg *configs.AppConfig) (*configs.GRPCServer, error) {
+	return configs.NewGRPCServer(appCfg.GRPCPort)
 }
 
 func provideTwoFAUtil() *twofa.TwoFAUtil {

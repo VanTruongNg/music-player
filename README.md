@@ -15,7 +15,7 @@ This is the monorepo for the Music Player system, including multiple backend/fro
 - **Backend**: Golang, Gin, GORM, Redis, PostgreSQL, Kafka, Google Wire, Viper
 - **Frontend**: (To be added)
 - **DevOps**: Docker Compose, Goose, CI/CD pipeline (suggested: Github Actions, Gitlab CI)
-- **Package management**: pnpm (required for frontend, monorepo standard)
+- **Package management**: bun (required for frontend, monorepo standard)
 
 ## Quick Start
 

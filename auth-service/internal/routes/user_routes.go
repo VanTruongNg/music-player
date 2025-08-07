@@ -18,6 +18,8 @@ func RegisterUserRoutes(r *gin.RouterGroup, userHandler *handlers.UserHandler, a
 		// Protected routes - authentication required
 		protectedGroup := userGroup.Group("", authMiddleware.RequireAuth())
 		{
+			protectedGroup.GET("/users", userHandler.GetAllUsers)
+			protectedGroup.GET("/users/:id", userHandler.GetUserByID)
 			protectedGroup.GET("/me", userHandler.GetMe)
 		}
 	}

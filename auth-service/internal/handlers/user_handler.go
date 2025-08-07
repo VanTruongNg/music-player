@@ -22,6 +22,53 @@ func NewUserHandler(service services.UserService) *UserHandler {
 	return &UserHandler{service: service}
 }
 
+func (h *UserHandler) GetAllUsers(c *gin.Context) {
+	users, err := h.service.GetAllUsers(c.Request.Context())
+	if err != nil {
+		if derr, ok := err.(*domain.DomainError); ok {
+			utils.Fail(c, derr.Status, derr.Code, derr.Message)
+			return
+		}
+		utils.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+
+	var resp []dto.UserResponse
+	for _, user := range users {
+		resp = append(resp, dto.UserResponse{
+			ID:        user.ID,
+			Username:  user.Username,
+			Email:     user.Email,
+			FullName:  user.FullName,
+			CreatedAt: user.CreatedAt.Format(time.RFC3339),
+		})
+	}
+	utils.Success(c, http.StatusOK, resp)
+}
+
+func (h *UserHandler) GetUserByID(c *gin.Context) {
+	userID := c.Param("id")
+
+	user, err := h.service.GetUserByID(c.Request.Context(), userID)
+	if err != nil {
+		if derr, ok := err.(*domain.DomainError); ok {
+			utils.Fail(c, derr.Status, derr.Code, derr.Message)
+			return
+		}
+		utils.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+
+	resp := dto.UserResponse{
+		ID:        user.ID,
+		Username:  user.Username,
+		Email:     user.Email,
+		FullName:  user.FullName,
+		CreatedAt: user.CreatedAt.Format(time.RFC3339),
+	}
+	utils.Success(c, http.StatusOK, resp)
+}
+
 func (h *UserHandler) GetMe(c *gin.Context) {
 	userID, ok := middleware.MustGetUserID(c)
 	if !ok {
@@ -38,7 +85,7 @@ func (h *UserHandler) GetMe(c *gin.Context) {
 		return
 	}
 
-	resp := dto.UserGetMeResponse{
+	resp := dto.UserResponse{
 		ID:        user.ID,
 		Username:  user.Username,
 		Email:     user.Email,
@@ -98,11 +145,11 @@ func (h *UserHandler) Login(c *gin.Context) {
 	c.SetCookie(
 		"xs",
 		refreshToken,
-		60*60*24*7,   // maxAge (7 days)
-		"/",          // path - send to all endpoints
-		"",           // domain - current domain
-		false,        // secure - false for localhost HTTP
-		true,         // httpOnly - true for security
+		60*60*24*7, // maxAge (7 days)
+		"/",        // path - send to all endpoints
+		"",         // domain - current domain
+		false,      // secure - false for localhost HTTP
+		true,       // httpOnly - true for security
 	)
 
 	resp := dto.UserLoginResponse{

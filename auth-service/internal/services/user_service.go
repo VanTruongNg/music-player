@@ -11,6 +11,8 @@ import (
 )
 
 type UserService interface {
+	GetAllUsers(ctx context.Context) ([]*domain.User, error)
+	GetUserByID(ctx context.Context, userID string) (*domain.User, error)
 	GetMe(ctx context.Context, userID string) (*domain.User, error)
 	Register(ctx context.Context, req *dto.UserCreateRequest) (*domain.User, error)
 	Login(ctx context.Context, req *dto.UserLoginRequest) (*domain.User, string, string, error)
@@ -28,6 +30,28 @@ func NewUserService(userRepo repo.UserRepository, jwtService jwt.JWTService, tok
 		jwtService:   jwtService,
 		tokenManager: tokenManager,
 	}
+}
+
+func (s *userService) GetAllUsers(ctx context.Context) ([]*domain.User, error) {
+	users, err := s.userRepo.GetAllUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(users) == 0 {
+		return nil, domain.ErrNoUsersFound
+	}
+	return users, nil
+}
+
+func (s *userService) GetUserByID(ctx context.Context, userID string) (*domain.User, error) {
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, domain.ErrUserNotFound
+	}
+	return user, nil
 }
 
 func (s *userService) GetMe(ctx context.Context, userID string) (*domain.User, error) {

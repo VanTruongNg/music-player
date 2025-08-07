@@ -7,8 +7,9 @@ import (
 )
 
 type AppConfig struct {
-	Port string
-	Env  string
+	Port     string
+	GRPCPort string
+	Env      string
 }
 
 // LoadAppConfig loads application configuration using viper.
@@ -23,8 +24,9 @@ func LoadAppConfig() *AppConfig {
 	}
 
 	cfg := &AppConfig{
-		Port: viper.GetString("APP_PORT"),
-		Env:  viper.GetString("APP_ENV"),
+		Port:     viper.GetString("APP_PORT"),
+		GRPCPort: viper.GetString("GRPC_PORT"),
+		Env:      viper.GetString("APP_ENV"),
 	}
 	return cfg
 }
