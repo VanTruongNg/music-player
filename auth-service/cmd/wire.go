@@ -7,6 +7,7 @@ import (
 	"auth-service/configs"
 	"auth-service/internal/db"
 	"auth-service/internal/handlers"
+	"auth-service/internal/kafka"
 	"auth-service/internal/middleware"
 	"auth-service/internal/redis"
 	"auth-service/internal/repositories"
@@ -19,19 +20,25 @@ import (
 
 	"auth-service/internal/utils/twofa"
 
+	"github.com/IBM/sarama"
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
 	goredis "github.com/redis/go-redis/v9"
 )
 
 type App struct {
-	Router *gin.Engine
+	Router        *gin.Engine
+	GRPCServer    *configs.GRPCServer
+	KafkaProducer sarama.SyncProducer
+	KafkaConsumer sarama.ConsumerGroup
 }
 
-func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg *configs.RedisConfig) (*App, error) {
+func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg *configs.RedisConfig, kafkaCfg *configs.KafkaConfig) (*App, error) {
 	wire.Build(
 		db.NewGormDB,
 		redis.NewRedisClient,
+		kafka.NewKafkaProducer,
+		kafka.NewKafkaConsumer,
 		repositories.NewUserRepository,
 		provideJWTConfig,
 		provideJWTService,
@@ -44,6 +51,7 @@ func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg 
 		provideTwoFAUtil,
 		provideRedisUtil,
 		provideRouter,
+		provideGRPCServer,
 		provideApp,
 	)
 	return nil, nil
@@ -60,8 +68,17 @@ func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.Two
 	return r
 }
 
-func provideApp(router *gin.Engine) *App {
-	return &App{Router: router}
+func provideApp(router *gin.Engine, grpcServer *configs.GRPCServer, kafkaProducer sarama.SyncProducer, kafkaConsumer sarama.ConsumerGroup) *App {
+	return &App{
+		Router:        router,
+		GRPCServer:    grpcServer,
+		KafkaProducer: kafkaProducer,
+		KafkaConsumer: kafkaConsumer,
+	}
+}
+
+func provideGRPCServer(appCfg *configs.AppConfig) (*configs.GRPCServer, error) {
+	return configs.NewGRPCServer(appCfg.GRPCPort)
 }
 
 func provideTwoFAUtil() *twofa.TwoFAUtil {

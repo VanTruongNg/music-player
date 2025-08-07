@@ -31,7 +31,7 @@ type UserLoginResponse struct {
 	AccessToken string `json:"accessToken"`
 }
 
-type UserGetMeResponse struct {
+type UserResponse struct {
 	ID        string `json:"id"`
 	Username  string `json:"username"`
 	Email     string `json:"email"`
