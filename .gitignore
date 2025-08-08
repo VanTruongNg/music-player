@@ -1,0 +1,87 @@
+# =============================================================================
+# Music Player BigTech GitIgnore
+# =============================================================================
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.staging
+
+# Docker data volumes
+data/
+!data/.gitkeep
+
+# Database data
+postgres/
+redis/
+kafka/
+zookeeper/
+
+# Docker files
+.docker/
+docker-compose.override.yml
+
+# Secrets
+secrets/
+!secrets/.gitkeep
+!secrets/README.md
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Build artifacts
+dist/
+build/
+target/
+bin/
+.build/
+
+# Go specific
+vendor/
+*.mod.sum
+coverage.out
+*.test
+*.prof
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+
+# Node modules (if any)
+node_modules/
+
+# Python (if any)
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+venv/
+env/
+
+# Cache directories
+.cache/
+.npm/
+.yarn/
