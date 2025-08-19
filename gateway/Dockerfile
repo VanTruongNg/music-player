@@ -1,103 +1,88 @@
 # syntax=docker/dockerfile:1.6
 # =============================================================================
-# BigTech Production Dockerfile - API Gateway
-# Cloud-Native, Security-First, High-Performance
+# BigTech-grade Dockerfile (Prod) - API Gateway
+# - Secure: non-root, distroless
+# - Small & fast: static build, trimpath, optional UPX
+# - K8s-ready: no HEALTHCHECK (use probes later)
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# Build Stage: Advanced optimization with multi-arch support
+# Build Stage
 # -----------------------------------------------------------------------------
-FROM golang:1.24.2-alpine3.20 AS builder
+FROM golang:1.25.0-alpine3.20 AS builder
 
-# Build arguments for flexibility
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 ARG VERSION=dev
 ARG COMMIT_SHA=unknown
 ARG BUILD_TIME
+# Path to main package (override if multiple commands, e.g. ./cmd/gateway)
+ARG CMD_PATH=./cmd
+# Toggle UPX compression (true/false)
+ARG COMPRESS=true
 
-# Security: Create consistent non-root user
-RUN addgroup -g 65532 -S nonroot && \
-    adduser -u 65532 -S nonroot -G nonroot
+# Non-root for build
+RUN addgroup -g 65532 -S nonroot && adduser -u 65532 -S nonroot -G nonroot
 
-# Performance: Optimized dependency installation
-RUN apk add --no-cache \
-    git \
-    ca-certificates \
-    tzdata \
-    upx \
-    && rm -rf /var/cache/apk/* \
-    && rm -rf /var/lib/apt/lists/*
+# Tooling
+RUN apk add --no-cache git ca-certificates tzdata upx
 
 WORKDIR /build
-RUN chown nonroot:nonroot /build
-
-# Performance: Dependency management with optimal caching
 COPY --chown=nonroot:nonroot go.mod go.sum ./
-
-# Security: Switch to non-root user early
 USER nonroot:nonroot
 
+# Cache deps
 RUN go mod download && go mod verify
 
-# Source code
+# Source
 COPY --chown=nonroot:nonroot . .
 
-# Performance: Generate wire dependencies efficiently
-RUN cd cmd && go run github.com/google/wire/cmd/wire
+# Optional: wire generate if used
+RUN [ -d "cmd" ] && cd cmd && go run github.com/google/wire/cmd/wire || true
 
-# Build optimization: Create highly optimized multi-arch binary
-RUN CGO_ENABLED=0 \
-    GOOS=${TARGETOS} \
-    GOARCH=${TARGETARCH} \
+# Build static binary (CGO off), clean flags
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build \
-    -ldflags="-w -s -X main.version=${VERSION} -X main.commit=${COMMIT_SHA} -X main.buildTime=${BUILD_TIME} -extldflags '-static'" \
-    -a \
-    -installsuffix cgo \
-    -tags "netgo,osusergo,static_build" \
     -trimpath \
-    -o main \
-    ./cmd
+    -tags "netgo,osusergo" \
+    -ldflags "-w -s -X main.version=${VERSION} -X main.commit=${COMMIT_SHA} -X main.buildTime=${BUILD_TIME}" \
+    -o /build/main \
+    ${CMD_PATH}
 
-# Performance: Binary compression
-RUN upx --best --lzma main || echo "UPX compression failed, continuing..."
+# Optional: shrink further (can hinder debugging/pprof)
+RUN if [ "${COMPRESS}" = "true" ]; then upx --best --lzma /build/main || true; fi
 
 # -----------------------------------------------------------------------------
-# Production Stage: Ultra-secure, minimal runtime
+# Runtime Stage
 # -----------------------------------------------------------------------------
 FROM gcr.io/distroless/static-debian12:nonroot
 
-# Build arguments for metadata
 ARG VERSION=dev
 ARG BUILD_TIME
 
-# OCI metadata with comprehensive information
-LABEL \
-    org.opencontainers.image.title="API Gateway" \
+LABEL org.opencontainers.image.title="API Gateway" \
     org.opencontainers.image.description="BigTech-grade API Gateway Microservice" \
     org.opencontainers.image.vendor="SupaGoodSongs" \
     org.opencontainers.image.version="${VERSION}" \
     org.opencontainers.image.created="${BUILD_TIME}" \
     org.opencontainers.image.source="https://github.com/VanTruongNg/music-player" \
-    org.opencontainers.image.documentation="https://docs.music-player.com/gateway"
+    org.opencontainers.image.licenses="MIT"
 
-# Security: Essential runtime files
+# Certs & timezones
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
-# Application files with correct ownership
-COPY --from=builder --chown=65532:65532 /build/main /app/main
-COPY --from=builder --chown=65532:65532 /build/configs /app/configs
-
 WORKDIR /app
+COPY --from=builder --chown=65532:65532 /build/main /app/main
+# Nếu cần config runtime, mount qua volume/env thay vì bake vào image
+# COPY --from=builder --chown=65532:65532 /build/configs /app/configs
 
-# Runtime optimization
+# Runtime env tối thiểu; để orchestrator tự điều phối CPU/Mem
 ENV TZ=UTC \
-    GIN_MODE=release \
-    GOMAXPROCS=1 \
-    GOMEMLIMIT=200MiB
+    GIN_MODE=release
 
-# Security: Non-root execution
+# (Tuỳ chọn) Graceful shutdown signal cho orchestrator
+STOPSIGNAL SIGTERM
+
 USER 65532:65532
-
 ENTRYPOINT ["/app/main"]
