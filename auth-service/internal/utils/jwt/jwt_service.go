@@ -15,6 +15,7 @@ type JWTService interface {
 	VerifyToken(tokenStr string, isRefresh bool) (*CustomClaims, error)
 	ExtractTokenFromHeader(authHeader string) (string, error)
 	GetRefreshTTL() time.Duration
+	GetAccessKID() string
 }
 
 type jwtService struct {
@@ -42,8 +43,13 @@ func (j *jwtService) SignAccessToken(userID string) (string, string, error) {
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString([]byte(j.cfg.AccessSecret))
+	// Use EdDSA (Ed25519) for access token
+	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
+
+	// Set the key ID in the header
+	token.Header["kid"] = j.cfg.AccessKID
+
+	signed, err := token.SignedString(j.cfg.AccessPrivateKey)
 	return signed, jti, err
 }
 
@@ -69,16 +75,41 @@ func (j *jwtService) SignRefreshToken(userID string) (string, string, error) {
 
 func (j *jwtService) VerifyToken(tokenStr string, isRefresh bool) (*CustomClaims, error) {
 	claims := &CustomClaims{}
-	var secret string
+
+	var keyFunc jwt.Keyfunc
 	if isRefresh {
-		secret = j.cfg.RefreshSecret
+		keyFunc = func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, ErrUnexpectedSigningMethod
+			}
+			return []byte(j.cfg.RefreshSecret), nil
+		}
 	} else {
-		secret = j.cfg.AccessSecret
+		keyFunc = func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
+				return nil, ErrUnexpectedSigningMethod
+			}
+
+			kidInterface, exists := token.Header["kid"]
+			if !exists {
+				return nil, ErrTokenInvalid
+			}
+
+			kid, ok := kidInterface.(string)
+			if !ok {
+				return nil, ErrTokenInvalid
+			}
+
+			publicKey, err := j.cfg.GetPublicKeyFromJWKS(kid)
+			if err != nil {
+				return nil, ErrTokenInvalid
+			}
+
+			return publicKey, nil
+		}
 	}
 
-	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
-		return []byte(secret), nil
-	})
+	token, err := jwt.ParseWithClaims(tokenStr, claims, keyFunc)
 
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
@@ -94,6 +125,10 @@ func (j *jwtService) VerifyToken(tokenStr string, isRefresh bool) (*CustomClaims
 
 func (j *jwtService) GetRefreshTTL() time.Duration {
 	return j.cfg.RefreshTTL
+}
+
+func (j *jwtService) GetAccessKID() string {
+	return j.cfg.AccessKID
 }
 
 func (j *jwtService) ExtractTokenFromHeader(authHeader string) (string, error) {

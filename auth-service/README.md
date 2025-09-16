@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Auth Service** is a robust user authentication microservice built with Golang, featuring modular architecture, multi-factor authentication (2FA), JWT, session management, and integration with PostgreSQL, Redis, and Kafka. This service is the security foundation for the Music Player system, ensuring safety, scalability, and maintainability.
+**Auth Service** is a robust user authentication microservice built with Golang, featuring modular architecture, multi-factor authentication (2FA), JWT with EdDSA signing for access tokens and HS256 for refresh tokens, session management, and integration with PostgreSQL, Redis, and Kafka. This service is the security foundation for the Music Player system, ensuring safety, scalability, and maintainability.
 
 ## Key Components
 
@@ -12,8 +12,8 @@
 - **internal/dto/**: Defines API request/response structs.
 - **internal/handlers/**: Handles HTTP requests for user, 2FA.
 - **internal/repositories/**: Data access (PostgreSQL) for users.
-- **internal/services/**: Business logic for user, 2FA, token.
-- **internal/utils/**: Utilities for JWT, Redis, 2FA, response helpers.
+- **internal/services/**: Business logic for user, 2FA, token management.
+- **internal/utils/jwt/**: JWT utilities with EdDSA for access tokens, HS256 for refresh tokens, key rotation support.
 - **migrations/**: Database schema and migration scripts.
 - **docker-compose.yml**: Quick start for Redis, Postgres, Kafka, Zookeeper, Kafka UI, PgAdmin.
 
@@ -84,6 +84,24 @@ sequenceDiagram
     Client->>AuthService: Enable 2FA
     AuthService->>TwoFAUtil: Generate secret, OTP URL
     AuthService-->>Client: Return OTP URL
+```
+
+### JWT Signing Flow
+
+```mermaid
+flowchart TD
+    A[Generate Tokens] --> B{Token Type}
+    B -->|Access Token| C[Load Ed25519 Private Key]
+    B -->|Refresh Token| D[Use HS256 Secret]
+    C --> E[Sign with EdDSA]
+    D --> F[Sign with HS256]
+    E --> G[Set KID in Header]
+    F --> H[Set KID in Header]
+    G --> I[Return Signed Token]
+    H --> I
+    I --> J[Optional: Rotate Keys]
+    J --> K[Call rotate_jwt_key.sh]
+    K --> L[Update JWKS]
 ```
 
 ## Development Notes
