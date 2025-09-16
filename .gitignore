@@ -85,3 +85,10 @@ env/
 .cache/
 .npm/
 .yarn/
+
+# JWT infrastructure
+infra/jwt/private/*
+!infra/jwt/private/.gitkeep
+infra/jwt/jwks/jwks.json
+infra/jwt/public/*
+!infra/jwt/public/.gitkeep
