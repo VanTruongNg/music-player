@@ -15,25 +15,19 @@ import (
 
 func InitializeApp(appCfg *configs.AppConfig) (*App, error) {
 	engine := provideRouter()
-	grpcServer, err := provideGRPCServer(appCfg)
-	if err != nil {
-		return nil, err
-	}
-	app := provideApp(engine, grpcServer)
+	app := provideApp(engine)
 	return app, nil
 }
 
 // wire.go:
 
 type App struct {
-	Router     *gin.Engine
-	GRPCServer *configs.GRPCServer
+	Router *gin.Engine
 }
 
-func provideApp(router *gin.Engine, grpcServer *configs.GRPCServer) *App {
+func provideApp(router *gin.Engine) *App {
 	return &App{
-		Router:     router,
-		GRPCServer: grpcServer,
+		Router: router,
 	}
 }
 
@@ -44,8 +38,4 @@ func provideRouter() *gin.Engine {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 	return r
-}
-
-func provideGRPCServer(appCfg *configs.AppConfig) (*configs.GRPCServer, error) {
-	return configs.NewGRPCServer(appCfg.GRPCPort)
 }

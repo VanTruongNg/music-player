@@ -9,7 +9,6 @@ import (
 type AppConfig struct {
 	Port     string
 	Env      string
-	GRPCPort string
 }
 
 func LoadAppConfig() *AppConfig {
@@ -24,7 +23,6 @@ func LoadAppConfig() *AppConfig {
 	config := &AppConfig{
 		Port:     viper.GetString("APP_PORT"),
 		Env:      viper.GetString("APP_ENV"),
-		GRPCPort: viper.GetString("GRPC_PORT"),
 	}
 
 	return config

@@ -42,16 +42,6 @@ func main() {
 		}
 	}()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		log.Printf("[INFO] gRPC server starting on port %s", appCfg.GRPCPort)
-		if err := app.GRPCServer.Start(); err != nil {
-			log.Printf("[ERROR] gRPC server error: %v", err)
-			cancel()
-		}
-	}()
-
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
@@ -73,12 +63,6 @@ func main() {
 		log.Printf("[ERROR] HTTP server forced to shutdown: %v", err)
 	} else {
 		log.Println("[INFO] HTTP server stopped successfully")
-	}
-
-	if app.GRPCServer != nil {
-		log.Println("[INFO] Stopping gRPC server...")
-		app.GRPCServer.Stop()
-		log.Println("[INFO] gRPC server stopped successfully")
 	}
 
 	done := make(chan struct{})
