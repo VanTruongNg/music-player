@@ -11,23 +11,20 @@ import (
 )
 
 type App struct {
-	Router     *gin.Engine
-	GRPCServer *configs.GRPCServer
+	Router *gin.Engine
 }
 
 func InitializeApp(appCfg *configs.AppConfig) (*App, error) {
 	wire.Build(
 		provideRouter,
-		provideGRPCServer,
 		provideApp,
 	)
 	return nil, nil
 }
 
-func provideApp(router *gin.Engine, grpcServer *configs.GRPCServer) *App {
+func provideApp(router *gin.Engine) *App {
 	return &App{
-		Router:     router,
-		GRPCServer: grpcServer,
+		Router: router,
 	}
 }
 
@@ -38,8 +35,4 @@ func provideRouter() *gin.Engine {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 	return r
-}
-
-func provideGRPCServer(appCfg *configs.AppConfig) (*configs.GRPCServer, error) {
-	return configs.NewGRPCServer(appCfg.GRPCPort)
 }
