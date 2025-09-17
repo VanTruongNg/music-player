@@ -8,17 +8,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// TwoFAHandler handles HTTP requests for 2FA features.
 type TwoFAHandler struct {
-	service *services.TwoFAService
+	service services.TwoFAService
 }
 
-// NewTwoFAHandler creates a new TwoFAHandler.
-func NewTwoFAHandler(service *services.TwoFAService) *TwoFAHandler {
+func NewTwoFAHandler(service services.TwoFAService) *TwoFAHandler {
 	return &TwoFAHandler{service: service}
 }
 
-// Setup2FA generates a new 2FA secret and OTP URL for the user.
 func (h *TwoFAHandler) Setup2FA(c *gin.Context) {
 	userID := c.Param("id")
 	result, err := h.service.Setup2FA(c.Request.Context(), userID)
@@ -29,7 +26,6 @@ func (h *TwoFAHandler) Setup2FA(c *gin.Context) {
 	utils.Success(c, http.StatusOK, gin.H{"secret": result.Secret, "otp_url": result.OTPURL})
 }
 
-// Enable2FA enables 2FA for the user after verifying the provided code.
 func (h *TwoFAHandler) Enable2FA(c *gin.Context) {
 	userID := c.Param("id")
 	var req struct {
@@ -46,7 +42,6 @@ func (h *TwoFAHandler) Enable2FA(c *gin.Context) {
 	utils.Success(c, http.StatusOK, gin.H{"message": "2FA enabled"})
 }
 
-// Verify2FA verifies the 2FA code for the user.
 func (h *TwoFAHandler) Verify2FA(c *gin.Context) {
 	userID := c.Param("id")
 	var req struct {
@@ -63,7 +58,6 @@ func (h *TwoFAHandler) Verify2FA(c *gin.Context) {
 	utils.Success(c, http.StatusOK, gin.H{"message": "2FA verified"})
 }
 
-// Disable2FA disables 2FA for the user.
 func (h *TwoFAHandler) Disable2FA(c *gin.Context) {
 	userID := c.Param("id")
 	if err := h.service.Disable2FA(c.Request.Context(), userID); err != nil {

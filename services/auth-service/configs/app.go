@@ -12,12 +12,10 @@ type AppConfig struct {
 	Env      string
 }
 
-// LoadAppConfig loads application configuration using viper.
 func LoadAppConfig() *AppConfig {
 	viper.SetConfigFile(".env")
 	viper.AutomaticEnv()
 
-	// Read config file (optional)
 	err := viper.ReadInConfig()
 	if err != nil {
 		log.Printf("[INFO] No .env file found or error reading config: %v", err)

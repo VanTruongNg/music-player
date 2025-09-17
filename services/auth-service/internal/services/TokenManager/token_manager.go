@@ -7,10 +7,6 @@ import (
 	"time"
 )
 
-// ctxKey là type riêng cho context key để tránh collision
-// Nên dùng chung type này ở mọi nơi inject/lấy value từ context
-// See: https://golang.org/pkg/context/#WithValue
-// và staticcheck SA1029
 type CtxKey string
 
 const (
@@ -18,7 +14,6 @@ const (
 	CtxKeyUserAgent CtxKey = "user_agent"
 )
 
-// SessionInfo holds metadata for a refresh token session.
 type SessionInfo struct {
 	UserID    string    `json:"user_id"`
 	IP        string    `json:"ip"`
@@ -39,7 +34,6 @@ func NewTokenManager(jwtService jwt.JWTService, redisUtil *redisutil.RedisUtil) 
 	return &tokenManager{jwtService: jwtService, redisUtil: redisUtil}
 }
 
-// getStringFromContext safely gets a string value from context by key
 func getStringFromContext(ctx context.Context, key CtxKey) string {
 	val := ctx.Value(key)
 	if s, ok := val.(string); ok {
@@ -48,7 +42,6 @@ func getStringFromContext(ctx context.Context, key CtxKey) string {
 	return ""
 }
 
-// GenerateTokens generates access & refresh tokens for a user, and stores refresh session info in Redis.
 func (tm *tokenManager) GenerateTokens(ctx context.Context, userID string) (string, string, error) {
 	ip := getStringFromContext(ctx, CtxKeyIP)
 	userAgent := getStringFromContext(ctx, CtxKeyUserAgent)
@@ -61,7 +54,6 @@ func (tm *tokenManager) GenerateTokens(ctx context.Context, userID string) (stri
 	if err != nil {
 		return "", "", err
 	}
-	// Store session info in Redis for refresh token jti
 	session := SessionInfo{
 		UserID:    userID,
 		IP:        ip,

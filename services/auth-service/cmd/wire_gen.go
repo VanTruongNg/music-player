@@ -23,6 +23,7 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/gin-gonic/gin"
 	redis2 "github.com/redis/go-redis/v9"
+	"music-player/api/proto/auth/v1"
 )
 
 // Injectors from wire.go:
@@ -57,7 +58,8 @@ func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg 
 	if err != nil {
 		return nil, err
 	}
-	app := provideApp(engine, grpcServer, syncProducer, consumerGroup)
+	authGRPCHandler := handlers.NewAuthGRPCHandler(userService, twoFAService)
+	app := provideApp(engine, grpcServer, syncProducer, consumerGroup, authGRPCHandler)
 	return app, nil
 }
 
@@ -81,7 +83,9 @@ func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.Two
 	return r
 }
 
-func provideApp(router *gin.Engine, grpcServer *configs.GRPCServer, kafkaProducer sarama.SyncProducer, kafkaConsumer sarama.ConsumerGroup) *App {
+func provideApp(router *gin.Engine, grpcServer *configs.GRPCServer, kafkaProducer sarama.SyncProducer, kafkaConsumer sarama.ConsumerGroup, authGRPCHandler *handlers.AuthGRPCHandler) *App {
+	authv1.RegisterAuthServiceServer(grpcServer.GetServer(), authGRPCHandler)
+
 	return &App{
 		Router:        router,
 		GRPCServer:    grpcServer,

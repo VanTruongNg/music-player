@@ -20,6 +20,8 @@ import (
 
 	"auth-service/internal/utils/twofa"
 
+	authv1 "music-player/api/proto/auth/v1"
+
 	"github.com/IBM/sarama"
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
@@ -35,21 +37,35 @@ type App struct {
 
 func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg *configs.RedisConfig, kafkaCfg *configs.KafkaConfig) (*App, error) {
 	wire.Build(
+		// Infrastructure
 		db.NewGormDB,
 		redis.NewRedisClient,
 		kafka.NewKafkaProducer,
 		kafka.NewKafkaConsumer,
+
+		// Repositories
 		repositories.NewUserRepository,
+
+		// Utilities
+		provideTwoFAUtil,
+		provideRedisUtil,
 		provideJWTConfig,
 		provideJWTService,
 		provideTokenManager,
-		middleware.NewAuthMiddleware,
+
+		// Services
 		services.NewUserService,
 		services.NewTwoFAService,
+
+		// Middleware
+		middleware.NewAuthMiddleware,
+
+		// Handlers
 		handlers.NewUserHandler,
 		handlers.NewTwoFAHandler,
-		provideTwoFAUtil,
-		provideRedisUtil,
+		handlers.NewAuthGRPCHandler,
+
+		// Server components
 		provideRouter,
 		provideGRPCServer,
 		provideApp,
@@ -68,7 +84,9 @@ func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.Two
 	return r
 }
 
-func provideApp(router *gin.Engine, grpcServer *configs.GRPCServer, kafkaProducer sarama.SyncProducer, kafkaConsumer sarama.ConsumerGroup) *App {
+func provideApp(router *gin.Engine, grpcServer *configs.GRPCServer, kafkaProducer sarama.SyncProducer, kafkaConsumer sarama.ConsumerGroup, authGRPCHandler *handlers.AuthGRPCHandler) *App {
+	authv1.RegisterAuthServiceServer(grpcServer.GetServer(), authGRPCHandler)
+
 	return &App{
 		Router:        router,
 		GRPCServer:    grpcServer,

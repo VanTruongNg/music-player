@@ -7,8 +7,9 @@ import (
 )
 
 type AppConfig struct {
-	Port     string
-	Env      string
+	Port            string
+	Env             string
+	AuthServiceAddr string
 }
 
 func LoadAppConfig() *AppConfig {
@@ -17,13 +18,14 @@ func LoadAppConfig() *AppConfig {
 
 	err := viper.ReadInConfig()
 	if err != nil {
-		log.Print("Error reading .env file")
+		log.Printf("[INFO] No .env file found or error reading config: %v", err)
 	}
 
-	config := &AppConfig{
-		Port:     viper.GetString("APP_PORT"),
-		Env:      viper.GetString("APP_ENV"),
+	cfg := &AppConfig{
+		Port:            viper.GetString("APP_PORT"),
+		Env:             viper.GetString("APP_ENV"),
+		AuthServiceAddr: viper.GetString("AUTH_SERVICE_ADDR"),
 	}
 
-	return config
+	return cfg
 }
