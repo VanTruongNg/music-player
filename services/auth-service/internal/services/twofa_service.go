@@ -10,21 +10,28 @@ import (
 	"time"
 )
 
-type TwoFAService struct {
+type TwoFAService interface {
+	Setup2FA(ctx context.Context, userID string) (*twofa.SetupResult, error)
+	Enable2FA(ctx context.Context, userID, code string) error
+	Verify2FA(ctx context.Context, userID, code string) error
+	Disable2FA(ctx context.Context, userID string) error
+}
+
+type twoFAService struct {
 	twoFAUtil *twofa.TwoFAUtil
 	userRepo  repositories.UserRepository
 	redisUtil *redisutil.RedisUtil
 }
 
-func NewTwoFAService(userRepo repositories.UserRepository, twoFAUtil *twofa.TwoFAUtil, redisUtil *redisutil.RedisUtil) *TwoFAService {
-	return &TwoFAService{
+func NewTwoFAService(userRepo repositories.UserRepository, twoFAUtil *twofa.TwoFAUtil, redisUtil *redisutil.RedisUtil) TwoFAService {
+	return &twoFAService{
 		twoFAUtil: twoFAUtil,
 		userRepo:  userRepo,
 		redisUtil: redisUtil,
 	}
 }
 
-func (s *TwoFAService) Setup2FA(ctx context.Context, userID string) (*twofa.SetupResult, error) {
+func (s *twoFAService) Setup2FA(ctx context.Context, userID string) (*twofa.SetupResult, error) {
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -54,7 +61,7 @@ func (s *TwoFAService) Setup2FA(ctx context.Context, userID string) (*twofa.Setu
 	return setupResult, nil
 }
 
-func (s *TwoFAService) Enable2FA(ctx context.Context, userID, code string) error {
+func (s *twoFAService) Enable2FA(ctx context.Context, userID, code string) error {
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		return err
@@ -79,7 +86,7 @@ func (s *TwoFAService) Enable2FA(ctx context.Context, userID, code string) error
 	return nil
 }
 
-func (s *TwoFAService) Verify2FA(ctx context.Context, userID, code string) error {
+func (s *twoFAService) Verify2FA(ctx context.Context, userID, code string) error {
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		return err
@@ -93,7 +100,7 @@ func (s *TwoFAService) Verify2FA(ctx context.Context, userID, code string) error
 	return s.twoFAUtil.VerifyCode(user.TwoFASecret, code)
 }
 
-func (s *TwoFAService) Disable2FA(ctx context.Context, userID string) error {
+func (s *twoFAService) Disable2FA(ctx context.Context, userID string) error {
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil || user == nil {
 		return domain.ErrUserNotFound

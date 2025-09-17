@@ -1,0 +1,174 @@
+syntax = "proto3";
+
+package auth.v1;
+
+option go_package = "./proto/auth/v1;authv1";
+
+// AuthService handles authentication and authorization
+service AuthService {
+  // User authentication
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  
+  // Token management
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  rpc RevokeToken(RevokeTokenRequest) returns (RevokeTokenResponse);
+  
+  // Two-Factor Authentication
+  rpc EnableTwoFA(EnableTwoFARequest) returns (EnableTwoFAResponse);
+  rpc DisableTwoFA(DisableTwoFARequest) returns (DisableTwoFAResponse);
+  rpc VerifyTwoFA(VerifyTwoFARequest) returns (VerifyTwoFAResponse);
+  
+  // User management
+  rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
+  rpc UpdateUserProfile(UpdateUserProfileRequest) returns (UpdateUserProfileResponse);
+}
+
+// Login messages
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+  string two_fa_code = 3; // Optional 2FA code
+}
+
+message LoginResponse {
+  bool success = 1;
+  string message = 2;
+  string access_token = 3;
+  string refresh_token = 4;
+  int64 expires_in = 5;
+  User user = 6;
+}
+
+// Register messages
+message RegisterRequest {
+  string username = 1;
+  string email = 2;
+  string password = 3;
+  string full_name = 4;
+}
+
+message RegisterResponse {
+  bool success = 1;
+  string message = 2;
+  string user_id = 3;
+}
+
+// Logout messages
+message LogoutRequest {
+  string access_token = 1;
+  string refresh_token = 2;
+}
+
+message LogoutResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Token management messages
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+  bool success = 1;
+  string message = 2;
+  string access_token = 3;
+  string refresh_token = 4;
+  int64 expires_in = 5;
+}
+
+message ValidateTokenRequest {
+  string access_token = 1;
+}
+
+message ValidateTokenResponse {
+  bool valid = 1;
+  string message = 2;
+  User user = 3;
+  int64 expires_at = 4;
+}
+
+message RevokeTokenRequest {
+  string access_token = 1;
+  string refresh_token = 2;
+}
+
+message RevokeTokenResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Two-Factor Authentication messages
+message EnableTwoFARequest {
+  string user_id = 1;
+}
+
+message EnableTwoFAResponse {
+  bool success = 1;
+  string message = 2;
+  string qr_code_url = 3;
+  string secret_key = 4;
+}
+
+message DisableTwoFARequest {
+  string user_id = 1;
+  string two_fa_code = 2;
+}
+
+message DisableTwoFAResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message VerifyTwoFARequest {
+  string user_id = 1;
+  string two_fa_code = 2;
+}
+
+message VerifyTwoFAResponse {
+  bool valid = 1;
+  string message = 2;
+}
+
+// User profile messages
+message GetUserProfileRequest {
+  string user_id = 1;
+}
+
+message GetUserProfileResponse {
+  bool success = 1;
+  string message = 2;
+  User user = 3;
+}
+
+message UpdateUserProfileRequest {
+  string user_id = 1;
+  string full_name = 2;
+  string email = 3;
+}
+
+message UpdateUserProfileResponse {
+  bool success = 1;
+  string message = 2;
+  User user = 3;
+}
+
+// Common messages
+message User {
+  string id = 1;
+  string username = 2;
+  string email = 3;
+  string full_name = 4;
+  bool two_fa_enabled = 5;
+  string created_at = 6;
+  string updated_at = 7;
+}
+
+message Error {
+  string code = 1;
+  string message = 2;
+  map<string, string> details = 3;
+}

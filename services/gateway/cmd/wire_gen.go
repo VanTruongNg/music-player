@@ -7,35 +7,67 @@
 package main
 
 import (
+	"context"
 	"gateway/configs"
+	"gateway/internal/handlers"
+	"gateway/internal/routes"
 	"github.com/gin-gonic/gin"
 )
 
 // Injectors from wire.go:
 
 func InitializeApp(appCfg *configs.AppConfig) (*App, error) {
-	engine := provideRouter()
-	app := provideApp(engine)
+	grpcClients, err := provideGRPCClients(appCfg)
+	if err != nil {
+		return nil, err
+	}
+	authHandler := handlers.NewAuthHandler(grpcClients)
+	twoFAHandler := handlers.NewTwoFAHandler(grpcClients)
+	userHandler := handlers.NewUserHandler(grpcClients)
+	engine := provideRouter(authHandler, twoFAHandler, userHandler)
+	app := provideApp(engine, grpcClients, authHandler, twoFAHandler, userHandler)
 	return app, nil
 }
 
 // wire.go:
 
 type App struct {
-	Router *gin.Engine
+	Router       *gin.Engine
+	GRPCClients  *configs.GRPCClients
+	AuthHandler  *handlers.AuthHandler
+	TwoFAHandler *handlers.TwoFAHandler
+	UserHandler  *handlers.UserHandler
 }
 
-func provideApp(router *gin.Engine) *App {
+func provideApp(
+	router *gin.Engine,
+	grpcClients *configs.GRPCClients,
+	authHandler *handlers.AuthHandler,
+	twoFAHandler *handlers.TwoFAHandler,
+	userHandler *handlers.UserHandler,
+) *App {
 	return &App{
-		Router: router,
+		Router:       router,
+		GRPCClients:  grpcClients,
+		AuthHandler:  authHandler,
+		TwoFAHandler: twoFAHandler,
+		UserHandler:  userHandler,
 	}
 }
 
-func provideRouter() *gin.Engine {
+func provideRouter(
+	authHandler *handlers.AuthHandler,
+	twoFAHandler *handlers.TwoFAHandler,
+	userHandler *handlers.UserHandler,
+) *gin.Engine {
 	r := gin.Default()
-	api := r.Group("/api/v1")
-	api.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
+	routes.SetupAuthRoutes(r, authHandler, twoFAHandler, userHandler)
+
 	return r
+}
+
+func provideGRPCClients(appCfg *configs.AppConfig) (*configs.GRPCClients, error) {
+	ctx := context.Background()
+
+	return configs.NewGRPCClients(ctx, appCfg.AuthServiceAddr)
 }
