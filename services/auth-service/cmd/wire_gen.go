@@ -44,8 +44,9 @@ func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg 
 	twoFAUtil := provideTwoFAUtil()
 	twoFAService := services.NewTwoFAService(userRepository, twoFAUtil, redisUtil)
 	twoFAHandler := handlers.NewTwoFAHandler(twoFAService)
+	jwksHandler := handlers.NewJWKSHandler(jwtService)
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, redisUtil)
-	engine := provideRouter(userHandler, twoFAHandler, authMiddleware)
+	engine := provideRouter(userHandler, twoFAHandler, jwksHandler, authMiddleware)
 	grpcServer, err := provideGRPCServer(appCfg)
 	if err != nil {
 		return nil, err
@@ -72,7 +73,7 @@ type App struct {
 	KafkaConsumer sarama.ConsumerGroup
 }
 
-func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.TwoFAHandler, authMiddleware *middleware.AuthMiddleware) *gin.Engine {
+func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.TwoFAHandler, jwksHandler *handlers.JWKSHandler, authMiddleware *middleware.AuthMiddleware) *gin.Engine {
 	r := gin.Default()
 	api := r.Group("/api/v1")
 	api.GET("/health", func(c *gin.Context) {
@@ -80,6 +81,7 @@ func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.Two
 	})
 	routes.RegisterUserRoutes(api, userHandler, authMiddleware)
 	routes.RegisterTwoFARoutes(api, twoFAHandler, authMiddleware)
+	routes.RegisterJWKSRoutes(api, jwksHandler)
 	return r
 }
 

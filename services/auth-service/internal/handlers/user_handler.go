@@ -86,11 +86,12 @@ func (h *UserHandler) GetMe(c *gin.Context) {
 	}
 
 	resp := dto.UserResponse{
-		ID:        user.ID,
-		Username:  user.Username,
-		Email:     user.Email,
-		FullName:  user.FullName,
-		CreatedAt: user.CreatedAt.Format(time.RFC3339),
+		ID:           user.ID,
+		Username:     user.Username,
+		Email:        user.Email,
+		FullName:     user.FullName,
+		TwoFAEnabled: user.TwoFAEnabled,
+		CreatedAt:    user.CreatedAt.Format(time.RFC3339),
 	}
 	utils.Success(c, http.StatusOK, resp)
 }
@@ -145,19 +146,22 @@ func (h *UserHandler) Login(c *gin.Context) {
 	c.SetCookie(
 		"xs",
 		refreshToken,
-		60*60*24*7, // maxAge (7 days)
-		"/",        // path - send to all endpoints
-		"",         // domain - current domain
-		false,      // secure - false for localhost HTTP
-		true,       // httpOnly - true for security
+		60*60*24*7,
+		"/",
+		"",
+		false,
+		true,
 	)
 
 	resp := dto.UserLoginResponse{
-		ID:          user.ID,
-		Username:    user.Username,
-		Email:       user.Email,
-		FullName:    user.FullName,
-		CreatedAt:   user.CreatedAt.Format(time.RFC3339),
+		User: dto.UserResponse{
+			ID:           user.ID,
+			Username:     user.Username,
+			Email:        user.Email,
+			FullName:     user.FullName,
+			TwoFAEnabled: user.TwoFAEnabled,
+			CreatedAt:    user.CreatedAt.Format(time.RFC3339),
+		},
 		AccessToken: accessToken,
 	}
 	utils.Success(c, http.StatusOK, resp)

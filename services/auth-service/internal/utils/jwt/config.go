@@ -100,7 +100,6 @@ func loadEd25519PrivateKey(filepath string) (ed25519.PrivateKey, error) {
 	return ed25519Key, nil
 }
 
-// GetPublicKeyFromJWKS retrieves Ed25519 public key from JWKS file by KID
 func (cfg *JWTConfig) GetPublicKeyFromJWKS(kid string) (ed25519.PublicKey, error) {
 	if cfg.JWKSFile == "" {
 		return nil, fmt.Errorf("JWKS file not configured")

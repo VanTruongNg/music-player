@@ -23,18 +23,15 @@ type UserRegisterResponse struct {
 }
 
 type UserLoginResponse struct {
-	ID          string `json:"id"`
-	Username    string `json:"username"`
-	Email       string `json:"email"`
-	FullName    string `json:"fullName"`
-	CreatedAt   string `json:"createdAt"`
-	AccessToken string `json:"accessToken"`
+	User        UserResponse `json:"user"`
+	AccessToken string       `json:"accessToken"`
 }
 
 type UserResponse struct {
-	ID        string `json:"id"`
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	FullName  string `json:"fullName"`
-	CreatedAt string `json:"createdAt"`
+	ID           string `json:"id"`
+	Username     string `json:"username"`
+	Email        string `json:"email"`
+	FullName     string `json:"fullName"`
+	TwoFAEnabled bool   `json:"twoFaEnabled"`
+	CreatedAt    string `json:"createdAt"`
 }
