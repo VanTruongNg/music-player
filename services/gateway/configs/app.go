@@ -7,9 +7,10 @@ import (
 )
 
 type AppConfig struct {
-	Port            string
-	Env             string
-	AuthServiceAddr string
+	Port               string
+	Env                string
+	AuthServiceAddr    string // gRPC address
+	AuthServiceHTTPURL string // HTTP URL for REST API
 }
 
 func LoadAppConfig() *AppConfig {
@@ -22,9 +23,10 @@ func LoadAppConfig() *AppConfig {
 	}
 
 	cfg := &AppConfig{
-		Port:            viper.GetString("APP_PORT"),
-		Env:             viper.GetString("APP_ENV"),
-		AuthServiceAddr: viper.GetString("AUTH_SERVICE_ADDR"),
+		Port:               viper.GetString("APP_PORT"),
+		Env:                viper.GetString("APP_ENV"),
+		AuthServiceAddr:    viper.GetString("AUTH_SERVICE_ADDR"),     // gRPC: localhost:8081
+		AuthServiceHTTPURL: viper.GetString("AUTH_SERVICE_HTTP_URL"), // HTTP: http://localhost:8080
 	}
 
 	return cfg

@@ -64,6 +64,7 @@ func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg 
 		handlers.NewUserHandler,
 		handlers.NewTwoFAHandler,
 		handlers.NewAuthGRPCHandler,
+		handlers.NewJWKSHandler,
 
 		// Server components
 		provideRouter,
@@ -73,7 +74,7 @@ func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg 
 	return nil, nil
 }
 
-func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.TwoFAHandler, authMiddleware *middleware.AuthMiddleware) *gin.Engine {
+func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.TwoFAHandler, jwksHandler *handlers.JWKSHandler, authMiddleware *middleware.AuthMiddleware) *gin.Engine {
 	r := gin.Default()
 	api := r.Group("/api/v1")
 	api.GET("/health", func(c *gin.Context) {
@@ -81,6 +82,7 @@ func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.Two
 	})
 	routes.RegisterUserRoutes(api, userHandler, authMiddleware)
 	routes.RegisterTwoFARoutes(api, twoFAHandler, authMiddleware)
+	routes.RegisterJWKSRoutes(api, jwksHandler)
 	return r
 }
 

@@ -25,7 +25,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	var req struct {
 		Email     string `json:"email" binding:"required"`
 		Password  string `json:"password" binding:"required"`
-		TwoFACode string `json:"twoFaCode,omitempty"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -43,7 +42,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	resp, err := h.grpcClients.AuthClient.Login(ctx, &authv1.LoginRequest{
 		Email:     req.Email,
 		Password:  req.Password,
-		TwoFaCode: req.TwoFACode,
 	})
 
 	if err != nil {

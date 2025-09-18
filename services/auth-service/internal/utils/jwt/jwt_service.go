@@ -1,7 +1,10 @@
 package jwt
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -15,7 +18,7 @@ type JWTService interface {
 	VerifyToken(tokenStr string, isRefresh bool) (*CustomClaims, error)
 	ExtractTokenFromHeader(authHeader string) (string, error)
 	GetRefreshTTL() time.Duration
-	GetAccessKID() string
+	GetJWKS() (*JWKS, error)
 }
 
 type jwtService struct {
@@ -43,10 +46,8 @@ func (j *jwtService) SignAccessToken(userID string) (string, string, error) {
 		},
 	}
 
-	// Use EdDSA (Ed25519) for access token
 	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
 
-	// Set the key ID in the header
 	token.Header["kid"] = j.cfg.AccessKID
 
 	signed, err := token.SignedString(j.cfg.AccessPrivateKey)
@@ -127,10 +128,6 @@ func (j *jwtService) GetRefreshTTL() time.Duration {
 	return j.cfg.RefreshTTL
 }
 
-func (j *jwtService) GetAccessKID() string {
-	return j.cfg.AccessKID
-}
-
 func (j *jwtService) ExtractTokenFromHeader(authHeader string) (string, error) {
 	if authHeader == "" {
 		return "", ErrTokenInvalid
@@ -141,11 +138,28 @@ func (j *jwtService) ExtractTokenFromHeader(authHeader string) (string, error) {
 		return "", ErrTokenInvalid
 	}
 
-	// Extract token part
 	token := strings.TrimPrefix(authHeader, bearerPrefix)
 	if token == "" {
 		return "", ErrTokenInvalid
 	}
 
 	return token, nil
+}
+
+func (j *jwtService) GetJWKS() (*JWKS, error) {
+	if j.cfg.JWKSFile == "" {
+		return nil, fmt.Errorf("JWKS file not configured")
+	}
+
+	jwksData, err := os.ReadFile(j.cfg.JWKSFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read JWKS file: %w", err)
+	}
+
+	var jwks JWKS
+	if err := json.Unmarshal(jwksData, &jwks); err != nil {
+		return nil, fmt.Errorf("failed to parse JWKS: %w", err)
+	}
+
+	return &jwks, nil
 }

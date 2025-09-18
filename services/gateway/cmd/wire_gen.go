@@ -10,7 +10,9 @@ import (
 	"context"
 	"gateway/configs"
 	"gateway/internal/handlers"
+	"gateway/internal/middleware"
 	"gateway/internal/routes"
+	"gateway/internal/utils/jwt"
 	"github.com/gin-gonic/gin"
 )
 
@@ -24,19 +26,23 @@ func InitializeApp(appCfg *configs.AppConfig) (*App, error) {
 	authHandler := handlers.NewAuthHandler(grpcClients)
 	twoFAHandler := handlers.NewTwoFAHandler(grpcClients)
 	userHandler := handlers.NewUserHandler(grpcClients)
-	engine := provideRouter(authHandler, twoFAHandler, userHandler)
-	app := provideApp(engine, grpcClients, authHandler, twoFAHandler, userHandler)
+	jwksClient := provideJWKSClient(appCfg)
+	jwtVerifier := jwt.NewJWTVerifier(jwksClient)
+	authMiddleware := middleware.NewAuthMiddleware(jwtVerifier)
+	engine := provideRouter(authHandler, twoFAHandler, userHandler, authMiddleware)
+	app := provideApp(engine, grpcClients, authHandler, twoFAHandler, userHandler, authMiddleware)
 	return app, nil
 }
 
 // wire.go:
 
 type App struct {
-	Router       *gin.Engine
-	GRPCClients  *configs.GRPCClients
-	AuthHandler  *handlers.AuthHandler
-	TwoFAHandler *handlers.TwoFAHandler
-	UserHandler  *handlers.UserHandler
+	Router         *gin.Engine
+	GRPCClients    *configs.GRPCClients
+	AuthHandler    *handlers.AuthHandler
+	TwoFAHandler   *handlers.TwoFAHandler
+	UserHandler    *handlers.UserHandler
+	AuthMiddleware *middleware.AuthMiddleware
 }
 
 func provideApp(
@@ -45,13 +51,15 @@ func provideApp(
 	authHandler *handlers.AuthHandler,
 	twoFAHandler *handlers.TwoFAHandler,
 	userHandler *handlers.UserHandler,
+	authMiddleware *middleware.AuthMiddleware,
 ) *App {
 	return &App{
-		Router:       router,
-		GRPCClients:  grpcClients,
-		AuthHandler:  authHandler,
-		TwoFAHandler: twoFAHandler,
-		UserHandler:  userHandler,
+		Router:         router,
+		GRPCClients:    grpcClients,
+		AuthHandler:    authHandler,
+		TwoFAHandler:   twoFAHandler,
+		UserHandler:    userHandler,
+		AuthMiddleware: authMiddleware,
 	}
 }
 
@@ -59,9 +67,10 @@ func provideRouter(
 	authHandler *handlers.AuthHandler,
 	twoFAHandler *handlers.TwoFAHandler,
 	userHandler *handlers.UserHandler,
+	authMiddleware *middleware.AuthMiddleware,
 ) *gin.Engine {
 	r := gin.Default()
-	routes.SetupAuthRoutes(r, authHandler, twoFAHandler, userHandler)
+	routes.SetupAuthRoutes(r, authHandler, twoFAHandler, userHandler, authMiddleware)
 
 	return r
 }
@@ -70,4 +79,8 @@ func provideGRPCClients(appCfg *configs.AppConfig) (*configs.GRPCClients, error)
 	ctx := context.Background()
 
 	return configs.NewGRPCClients(ctx, appCfg.AuthServiceAddr)
+}
+
+func provideJWKSClient(appCfg *configs.AppConfig) *jwt.JWKSClient {
+	return jwt.NewJWKSClient(appCfg.AuthServiceHTTPURL)
 }
