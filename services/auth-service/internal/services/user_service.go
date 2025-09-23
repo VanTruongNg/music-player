@@ -108,7 +108,7 @@ func (s *userService) Login(ctx context.Context, req *dto.UserLoginRequest) (*do
 		return nil, "", "", err
 	}
 
-	accessToken, refreshToken, err := s.tokenManager.GenerateTokens(ctx, updatedUser.ID)
+	accessToken, refreshToken, err := s.tokenManager.IssueInitialTokens(ctx, updatedUser.ID)
 	if err != nil {
 		return nil, "", "", err
 	}

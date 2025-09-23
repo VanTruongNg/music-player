@@ -37,13 +37,13 @@ func GetUserJTIFromContext(c *gin.Context) (string, error) {
 	return userJTIStr, nil
 }
 
-func GetUserDataFromContext(c *gin.Context) (*customjwt.CustomClaims, error) {
+func GetUserDataFromContext(c *gin.Context) (*customjwt.AccessClaims, error) {
 	userData, exists := c.Get(ContextKeyUserData)
 	if !exists {
 		return nil, errors.New("user data not found in context")
 	}
 
-	claims, ok := userData.(*customjwt.CustomClaims)
+	claims, ok := userData.(*customjwt.AccessClaims)
 	if !ok {
 		return nil, errors.New("user data is not valid claims")
 	}
@@ -51,7 +51,7 @@ func GetUserDataFromContext(c *gin.Context) (*customjwt.CustomClaims, error) {
 	return claims, nil
 }
 
-func GetCurrentUser(c *gin.Context) (userID string, claims *customjwt.CustomClaims, err error) {
+func GetCurrentUser(c *gin.Context) (userID string, claims *customjwt.AccessClaims, err error) {
 	userID, err = GetUserIDFromContext(c)
 	if err != nil {
 		return "", nil, err
@@ -74,7 +74,7 @@ func MustGetUserID(c *gin.Context) (string, bool) {
 	return userID, true
 }
 
-func MustGetCurrentUser(c *gin.Context) (string, *customjwt.CustomClaims, bool) {
+func MustGetCurrentUser(c *gin.Context) (string, *customjwt.AccessClaims, bool) {
 	userID, claims, err := GetCurrentUser(c)
 	if err != nil {
 		utils.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "User data not found in context")
