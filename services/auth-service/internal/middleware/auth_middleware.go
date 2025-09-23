@@ -39,7 +39,7 @@ func (mw *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		claims, err := mw.jwtService.VerifyToken(token, false)
+		claims, err := mw.jwtService.VerifyAccessToken(token, false)
 		if err != nil {
 			var code, message string
 			switch err {
@@ -73,9 +73,9 @@ func (mw *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 	}
 }
 
-func (mw *AuthMiddleware) setUserContext(c *gin.Context, claims *customjwt.CustomClaims) {
-	c.Set(ContextKeyUserID, claims.UserID)
-	c.Set(ContextKeyUserJTI, claims.ID)
+func (mw *AuthMiddleware) setUserContext(c *gin.Context, claims *customjwt.AccessClaims) {
+	c.Set(ContextKeyUserID, claims.Subject)
+	c.Set(ContextKeyUserJTI, claims.SID)
 	c.Set(ContextKeyUserData, claims)
 }
 
@@ -86,7 +86,7 @@ func (mw *AuthMiddleware) validateSession(c *gin.Context) bool {
 		return false
 	}
 
-	refreshClaims, err := mw.jwtService.VerifyToken(refreshToken, true)
+	refreshClaims, err := mw.jwtService.VerifyAccessToken(refreshToken, true)
 	if err != nil {
 		utils.Fail(c, http.StatusUnauthorized, "SESSION_INVALID", "Invalid session - please login again")
 		return false

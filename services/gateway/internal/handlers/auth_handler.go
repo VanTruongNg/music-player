@@ -6,9 +6,12 @@ import (
 	"time"
 
 	"gateway/configs"
+	"gateway/internal/dto"
+	"gateway/internal/utils"
 	authv1 "music-player/api/proto/auth/v1"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc/metadata"
 )
 
 type AuthHandler struct {
@@ -22,34 +25,33 @@ func NewAuthHandler(grpcClients *configs.GRPCClients) *AuthHandler {
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
-	var req struct {
-		Email     string `json:"email" binding:"required"`
-		Password  string `json:"password" binding:"required"`
-	}
-
+	var req dto.UserLoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Invalid request format",
-			"error":   err.Error(),
-		})
+		utils.Fail(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+
+	md := metadata.Pairs(
+		"x-client-ip", clientIP,
+		"x-user-agent", userAgent,
+		"x-real-ip", c.GetHeader("X-Real-IP"),
+		"x-forwarded-for", c.GetHeader("X-Forwarded-For"),
+	)
+	ctx := metadata.NewOutgoingContext(c.Request.Context(), md)
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	resp, err := h.grpcClients.AuthClient.Login(ctx, &authv1.LoginRequest{
-		Email:     req.Email,
-		Password:  req.Password,
+		Email:    req.Email,
+		Password: req.Password,
 	})
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Authentication service unavailable",
-			"error":   err.Error(),
-		})
+		utils.Fail(c, http.StatusInternalServerError, "AUTH_SERVICE_UNAVAILABLE", err.Error())
 		return
 	}
 

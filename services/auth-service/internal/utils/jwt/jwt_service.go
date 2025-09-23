@@ -9,14 +9,14 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/oklog/ulid/v2"
 )
 
 type JWTService interface {
-	SignAccessToken(userID string) (string, string, error)
-	SignRefreshToken(userID string) (string, string, error)
-	VerifyToken(tokenStr string, isRefresh bool) (*CustomClaims, error)
+	SignAccessToken(userID, sid string, sv uint64) (string, time.Time, error)
+	SignRefreshToken(userID string) (string, time.Time, error)
+	VerifyAccessToken(tokenStr string, isRefresh bool) (*AccessClaims, error)
 	ExtractTokenFromHeader(authHeader string) (string, error)
+	GetAccessTTL() time.Duration
 	GetRefreshTTL() time.Duration
 	GetJWKS() (*JWKS, error)
 }
@@ -31,51 +31,47 @@ func NewJWTService(cfg *JWTConfig) *jwtService {
 	}
 }
 
-func (j *jwtService) SignAccessToken(userID string) (string, string, error) {
-	jti := ulid.Make().String()
+func (j *jwtService) SignAccessToken(userID, sid string, sv uint64) (string, time.Time, error) {
 	now := time.Now().UTC()
 	exp := now.Add(j.cfg.AccessTTL)
 
-	claims := &CustomClaims{
-		UserID: userID,
+	claims := &AccessClaims{
+		SID: sid,
+		SV:  sv,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(exp),
-			ID:        jti,
 			Subject:   userID,
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
-
 	token.Header["kid"] = j.cfg.AccessKID
 
 	signed, err := token.SignedString(j.cfg.AccessPrivateKey)
-	return signed, jti, err
+	return signed, exp, err
 }
 
-func (j *jwtService) SignRefreshToken(userID string) (string, string, error) {
-	jti := ulid.Make().String()
+func (j *jwtService) SignRefreshToken(userID string) (string, time.Time, error) {
 	now := time.Now().UTC()
 	exp := now.Add(j.cfg.RefreshTTL)
 
-	claims := &CustomClaims{
+	claims := &RefreshClaims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(exp),
-			ID:        jti,
 			Subject:   userID,
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signed, err := token.SignedString([]byte(j.cfg.RefreshSecret))
-	return signed, jti, err
+	return signed, exp, err
 }
 
-func (j *jwtService) VerifyToken(tokenStr string, isRefresh bool) (*CustomClaims, error) {
-	claims := &CustomClaims{}
+func (j *jwtService) VerifyAccessToken(tokenStr string, isRefresh bool) (*AccessClaims, error) {
+	claims := &AccessClaims{}
 
 	var keyFunc jwt.Keyfunc
 	if isRefresh {
@@ -122,6 +118,10 @@ func (j *jwtService) VerifyToken(tokenStr string, isRefresh bool) (*CustomClaims
 		return nil, ErrTokenInvalid
 	}
 	return claims, nil
+}
+
+func (j *jwtService) GetAccessTTL() time.Duration {
+	return j.cfg.AccessTTL
 }
 
 func (j *jwtService) GetRefreshTTL() time.Duration {

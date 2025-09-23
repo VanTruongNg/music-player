@@ -4,9 +4,12 @@ import (
 	"auth-service/internal/domain"
 	"auth-service/internal/dto"
 	"auth-service/internal/services"
+	tokenmanager "auth-service/internal/services/TokenManager"
 	"context"
 	authv1 "music-player/api/proto/auth/v1"
 	"time"
+
+	"google.golang.org/grpc/metadata"
 )
 
 type AuthGRPCHandler struct {
@@ -33,13 +36,27 @@ func (h *AuthGRPCHandler) Login(ctx context.Context, req *authv1.LoginRequest) (
 		}, nil
 	}
 
+	clientIP := "unknown"
+	userAgent := "unknown"
+
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if ips := md.Get("x-client-ip"); len(ips) > 0 {
+			clientIP = ips[0]
+		}
+		if uas := md.Get("x-user-agent"); len(uas) > 0 {
+			userAgent = uas[0]
+		}
+	}
+
+	newCtx := context.WithValue(ctx, tokenmanager.CtxKeyIP, clientIP)
+	newCtx = context.WithValue(newCtx, tokenmanager.CtxKeyUserAgent, userAgent)
+
 	loginReq := &dto.UserLoginRequest{
 		Email:    req.Email,
 		Password: req.Password,
 	}
 
-	// Call existing user service
-	user, accessToken, refreshToken, err := h.userService.Login(ctx, loginReq)
+	user, accessToken, refreshToken, err := h.userService.Login(newCtx, loginReq)
 	if err != nil {
 		if derr, ok := err.(*domain.DomainError); ok {
 			return &authv1.LoginResponse{
@@ -50,20 +67,6 @@ func (h *AuthGRPCHandler) Login(ctx context.Context, req *authv1.LoginRequest) (
 		return &authv1.LoginResponse{
 			Success: false,
 			Message: "Internal server error",
-		}, nil
-	}
-
-	if req.TwoFaCode != "" && user.TwoFAEnabled {
-		if err := h.twoFAService.Verify2FA(ctx, user.ID, req.TwoFaCode); err != nil {
-			return &authv1.LoginResponse{
-				Success: false,
-				Message: "Invalid 2FA code",
-			}, nil
-		}
-	} else if user.TwoFAEnabled {
-		return &authv1.LoginResponse{
-			Success: false,
-			Message: "2FA code required",
 		}, nil
 	}
 
