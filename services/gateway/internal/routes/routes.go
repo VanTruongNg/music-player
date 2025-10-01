@@ -11,8 +11,8 @@ import (
 func SetupAuthRoutes(
 	router *gin.Engine,
 	authHandler *handlers.AuthHandler,
-	twoFAHandler *handlers.TwoFAHandler,
-	userHandler *handlers.UserHandler,
+	twoFAHandler handlers.TwoFAHandler,
+	userHandler handlers.UserHandler,
 	authMiddleware *middleware.AuthMiddleware,
 ) {
 	api := router.Group("/api/v1")
@@ -40,16 +40,14 @@ func SetupAuthRoutes(
 	twoFA := api.Group("/2fa")
 	twoFA.Use(authMiddleware.RequireAuth())
 	{
+		twoFA.POST("/setup", twoFAHandler.Setup2FA)
 		twoFA.POST("/enable", twoFAHandler.Enable2FA)
-		twoFA.POST("/disable", twoFAHandler.DisableTwoFA)
-		twoFA.POST("/verify", twoFAHandler.VerifyTwoFA)
 	}
 
 	// User management routes (all protected)
 	users := api.Group("/users")
 	users.Use(authMiddleware.RequireAuth())
 	{
-		users.GET("/:userId", userHandler.GetUserProfile)
-		users.PUT("/:userId", userHandler.UpdateUserProfile)
+		users.GET("", userHandler.GetUserProfile)
 	}
 }

@@ -124,6 +124,36 @@ func (h *AuthGRPCHandler) Register(ctx context.Context, req *authv1.RegisterRequ
 	}, nil
 }
 
+// GetUserProfile gets user profile information
+func (h *AuthGRPCHandler) GetUserProfile(ctx context.Context, req *authv1.GetUserProfileRequest) (*authv1.GetUserProfileResponse, error) {
+
+	if req.UserId == "" {
+		return &authv1.GetUserProfileResponse{
+			Success: false,
+			Message: "User ID is required",
+		}, nil
+	}
+
+	user, err := h.userService.GetMe(ctx, req.UserId)
+	if err != nil {
+		return &authv1.GetUserProfileResponse{
+			Success: false,
+			Message: "Failed to retrieve user profile",
+		}, nil
+	}
+
+	return &authv1.GetUserProfileResponse{
+		Success: true,
+		Message: "User profile retrieved successfully",
+		User: &authv1.User{
+			Id:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+			FullName: user.FullName,
+		},
+	}, nil
+}
+
 func (h *AuthGRPCHandler) ValidateToken(ctx context.Context, req *authv1.ValidateTokenRequest) (*authv1.ValidateTokenResponse, error) {
 	if req.AccessToken == "" {
 		return &authv1.ValidateTokenResponse{
@@ -185,15 +215,55 @@ func (h *AuthGRPCHandler) RevokeToken(ctx context.Context, req *authv1.RevokeTok
 	}, nil
 }
 
+func (h *AuthGRPCHandler) SetupTwoFA(ctx context.Context, req *authv1.SetupTwoFARequest) (*authv1.SetupTwoFAResponse, error) {
+	if req.UserId == "" {
+		return &authv1.SetupTwoFAResponse{
+			Success: false,
+			Message: "User ID is required",
+		}, nil
+	}
+	result, err := h.twoFAService.Setup2FA(ctx, req.UserId)
+	if err != nil {
+		return &authv1.SetupTwoFAResponse{
+			Success: false,
+			Message: "Failed to setup 2FA: " + err.Error(),
+		}, nil
+	}
+
+	return &authv1.SetupTwoFAResponse{
+		Success: true,
+		Message: "2FA setup successful",
+		Secret:  result.Secret,
+		OtpUrl:  result.OTPURL,
+	}, nil
+}
+
 // EnableTwoFA enables two-factor authentication
 func (h *AuthGRPCHandler) EnableTwoFA(ctx context.Context, req *authv1.EnableTwoFARequest) (*authv1.EnableTwoFAResponse, error) {
-	// TODO: Implement 2FA enable using twoFAService
+	if req.UserId == "" || req.Code == "" {
+		return &authv1.EnableTwoFAResponse{
+			Success: false,
+			Message: "User ID and code are required",
+		}, nil
+	}
+
+	err := h.twoFAService.Enable2FA(ctx, req.UserId, req.Code)
+	if err != nil {
+		if derr, ok := err.(*domain.DomainError); ok {
+			return &authv1.EnableTwoFAResponse{
+				Success: false,
+				Message: derr.Message,
+			}, nil
+		}
+		return &authv1.EnableTwoFAResponse{
+			Success: false,
+			Message: "Internal server error",
+		}, nil
+	}
 
 	return &authv1.EnableTwoFAResponse{
-		Success:   true,
-		Message:   "2FA enabled successfully",
-		QrCodeUrl: "placeholder_qr_url",
-		SecretKey: "placeholder_secret",
+		Success: true,
+		Message: "2FA enabled successfully",
 	}, nil
 }
 
@@ -214,22 +284,6 @@ func (h *AuthGRPCHandler) VerifyTwoFA(ctx context.Context, req *authv1.VerifyTwo
 	return &authv1.VerifyTwoFAResponse{
 		Valid:   true,
 		Message: "2FA code is valid",
-	}, nil
-}
-
-// GetUserProfile gets user profile information
-func (h *AuthGRPCHandler) GetUserProfile(ctx context.Context, req *authv1.GetUserProfileRequest) (*authv1.GetUserProfileResponse, error) {
-	// TODO: Implement get user profile using userService
-
-	return &authv1.GetUserProfileResponse{
-		Success: true,
-		Message: "User profile retrieved successfully",
-		User: &authv1.User{
-			Id:       req.UserId,
-			Username: "username",
-			Email:    "user@example.com",
-			FullName: "User Name",
-		},
 	}, nil
 }
 

@@ -40,8 +40,8 @@ type App struct {
 	Router         *gin.Engine
 	GRPCClients    *configs.GRPCClients
 	AuthHandler    *handlers.AuthHandler
-	TwoFAHandler   *handlers.TwoFAHandler
-	UserHandler    *handlers.UserHandler
+	TwoFAHandler   handlers.TwoFAHandler
+	UserHandler    handlers.UserHandler
 	AuthMiddleware *middleware.AuthMiddleware
 }
 
@@ -49,8 +49,8 @@ func provideApp(
 	router *gin.Engine,
 	grpcClients *configs.GRPCClients,
 	authHandler *handlers.AuthHandler,
-	twoFAHandler *handlers.TwoFAHandler,
-	userHandler *handlers.UserHandler,
+	twoFAHandler handlers.TwoFAHandler,
+	userHandler handlers.UserHandler,
 	authMiddleware *middleware.AuthMiddleware,
 ) *App {
 	return &App{
@@ -65,8 +65,8 @@ func provideApp(
 
 func provideRouter(
 	authHandler *handlers.AuthHandler,
-	twoFAHandler *handlers.TwoFAHandler,
-	userHandler *handlers.UserHandler,
+	twoFAHandler handlers.TwoFAHandler,
+	userHandler handlers.UserHandler,
 	authMiddleware *middleware.AuthMiddleware,
 ) *gin.Engine {
 	r := gin.Default()

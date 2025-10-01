@@ -1,17 +1,24 @@
 package middleware
 
 import (
+	"gateway/internal/utils"
 	"gateway/internal/utils/jwt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	ContextKeyUserID   = "user_id"
+	ContextKeyUserData = "user_claims"
+	ContextUserSID     = "user_sid"
+)
+
 type AuthMiddleware struct {
-	jwtVerifier *jwt.JWTVerifier
+	jwtVerifier jwt.JWTVerifier
 }
 
-func NewAuthMiddleware(jwtVerifier *jwt.JWTVerifier) *AuthMiddleware {
+func NewAuthMiddleware(jwtVerifier jwt.JWTVerifier) *AuthMiddleware {
 	return &AuthMiddleware{
 		jwtVerifier: jwtVerifier,
 	}
@@ -20,21 +27,9 @@ func NewAuthMiddleware(jwtVerifier *jwt.JWTVerifier) *AuthMiddleware {
 func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 	return gin.HandlerFunc(func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Authorization header is required",
-				"code":  "MISSING_AUTH_HEADER",
-			})
-			c.Abort()
-			return
-		}
-
-		token, err := jwt.ExtractTokenFromHeader(authHeader)
+		token, err := m.jwtVerifier.ExtractTokenFromHeader(authHeader)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Invalid authorization header format",
-				"code":  "INVALID_AUTH_HEADER",
-			})
+			utils.Fail(c, http.StatusUnauthorized, "MISSING_TOKEN", "Authorization token is required")
 			c.Abort()
 			return
 		}
@@ -62,19 +57,27 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 				errorMessage = "Token verification failed"
 			}
 
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": errorMessage,
-				"code":  errorCode,
-			})
+			utils.Fail(c, http.StatusUnauthorized, errorCode, errorMessage)
 			c.Abort()
 			return
 		}
 
-		c.Set("user_id", claims.UserID)
-		c.Set("user_claims", claims)
+		if claims == nil {
+			utils.Fail(c, http.StatusUnauthorized, "INVALID_CLAIMS", "Token claims are invalid")
+			c.Abort()
+			return
+		}
+
+		m.setUserContext(c, claims)
 
 		c.Next()
 	})
+}
+
+func (m *AuthMiddleware) setUserContext(c *gin.Context, claims *jwt.AccessClaims) {
+	c.Set(ContextKeyUserID, claims.Subject)
+	c.Set(ContextKeyUserData, claims)
+	c.Set(ContextUserSID, claims.SID)
 }
 
 func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
@@ -85,7 +88,7 @@ func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 			return
 		}
 
-		token, err := jwt.ExtractTokenFromHeader(authHeader)
+		token, err := m.jwtVerifier.ExtractTokenFromHeader(authHeader)
 		if err != nil {
 			c.Next()
 			return
@@ -97,7 +100,7 @@ func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("user_id", claims.UserID)
+		c.Set("user_id", claims.Subject)
 		c.Set("user_claims", claims)
 		c.Next()
 	})
@@ -113,13 +116,13 @@ func GetUserID(c *gin.Context) (string, bool) {
 	return userIDStr, ok
 }
 
-func GetUserClaims(c *gin.Context) (*jwt.CustomClaims, bool) {
+func GetUserClaims(c *gin.Context) (*jwt.AccessClaims, bool) {
 	claims, exists := c.Get("user_claims")
 	if !exists {
 		return nil, false
 	}
 
-	userClaims, ok := claims.(*jwt.CustomClaims)
+	userClaims, ok := claims.(*jwt.AccessClaims)
 	return userClaims, ok
 }
 

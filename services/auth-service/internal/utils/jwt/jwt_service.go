@@ -25,7 +25,7 @@ type jwtService struct {
 	cfg *JWTConfig
 }
 
-func NewJWTService(cfg *JWTConfig) *jwtService {
+func NewJWTService(cfg *JWTConfig) JWTService {
 	return &jwtService{
 		cfg: cfg,
 	}

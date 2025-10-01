@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"auth-service/internal/domain"
 	"auth-service/internal/services"
 	"auth-service/internal/utils"
 	"net/http"
@@ -20,7 +21,11 @@ func (h *TwoFAHandler) Setup2FA(c *gin.Context) {
 	userID := c.Param("id")
 	result, err := h.service.Setup2FA(c.Request.Context(), userID)
 	if err != nil {
-		utils.Fail(c, http.StatusBadRequest, "SETUP_2FA_FAILED", err.Error())
+		if domainErr, ok := err.(*domain.DomainError); ok {
+			utils.Fail(c, domainErr.Status, domainErr.Code, domainErr.Message)
+		} else {
+			utils.Fail(c, http.StatusInternalServerError, "SETUP_2FA_FAILED", "Internal server error")
+		}
 		return
 	}
 	utils.Success(c, http.StatusOK, gin.H{"secret": result.Secret, "otp_url": result.OTPURL})
@@ -36,7 +41,11 @@ func (h *TwoFAHandler) Enable2FA(c *gin.Context) {
 		return
 	}
 	if err := h.service.Enable2FA(c.Request.Context(), userID, req.Code); err != nil {
-		utils.Fail(c, http.StatusBadRequest, "ENABLE_2FA_FAILED", err.Error())
+		if derr, ok := err.(*domain.DomainError); ok {
+			utils.Fail(c, derr.Status, derr.Code, derr.Message)
+			return
+		}
+		utils.Fail(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 	utils.Success(c, http.StatusOK, gin.H{"message": "2FA enabled"})
@@ -52,7 +61,11 @@ func (h *TwoFAHandler) Verify2FA(c *gin.Context) {
 		return
 	}
 	if err := h.service.Verify2FA(c.Request.Context(), userID, req.Code); err != nil {
-		utils.Fail(c, http.StatusBadRequest, "VERIFY_2FA_FAILED", err.Error())
+		if domainErr, ok := err.(*domain.DomainError); ok {
+			utils.Fail(c, domainErr.Status, domainErr.Code, domainErr.Message)
+		} else {
+			utils.Fail(c, http.StatusInternalServerError, "VERIFY_2FA_FAILED", "Internal server error")
+		}
 		return
 	}
 	utils.Success(c, http.StatusOK, gin.H{"message": "2FA verified"})
@@ -61,7 +74,11 @@ func (h *TwoFAHandler) Verify2FA(c *gin.Context) {
 func (h *TwoFAHandler) Disable2FA(c *gin.Context) {
 	userID := c.Param("id")
 	if err := h.service.Disable2FA(c.Request.Context(), userID); err != nil {
-		utils.Fail(c, http.StatusBadRequest, "DISABLE_2FA_FAILED", err.Error())
+		if domainErr, ok := err.(*domain.DomainError); ok {
+			utils.Fail(c, domainErr.Status, domainErr.Code, domainErr.Message)
+		} else {
+			utils.Fail(c, http.StatusInternalServerError, "DISABLE_2FA_FAILED", "Internal server error")
+		}
 		return
 	}
 	utils.Success(c, http.StatusOK, gin.H{"message": "2FA disabled"})
