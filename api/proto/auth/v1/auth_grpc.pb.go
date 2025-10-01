@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v6.32.1
-// source: proto/auth/v1/auth.proto
+// source: api/proto/auth/v1/auth.proto
 
 package authv1
 
@@ -25,6 +25,7 @@ const (
 	AuthService_RefreshToken_FullMethodName      = "/auth.v1.AuthService/RefreshToken"
 	AuthService_ValidateToken_FullMethodName     = "/auth.v1.AuthService/ValidateToken"
 	AuthService_RevokeToken_FullMethodName       = "/auth.v1.AuthService/RevokeToken"
+	AuthService_SetupTwoFA_FullMethodName        = "/auth.v1.AuthService/SetupTwoFA"
 	AuthService_EnableTwoFA_FullMethodName       = "/auth.v1.AuthService/EnableTwoFA"
 	AuthService_DisableTwoFA_FullMethodName      = "/auth.v1.AuthService/DisableTwoFA"
 	AuthService_VerifyTwoFA_FullMethodName       = "/auth.v1.AuthService/VerifyTwoFA"
@@ -47,6 +48,7 @@ type AuthServiceClient interface {
 	ValidateToken(ctx context.Context, in *ValidateTokenRequest, opts ...grpc.CallOption) (*ValidateTokenResponse, error)
 	RevokeToken(ctx context.Context, in *RevokeTokenRequest, opts ...grpc.CallOption) (*RevokeTokenResponse, error)
 	// Two-Factor Authentication
+	SetupTwoFA(ctx context.Context, in *SetupTwoFARequest, opts ...grpc.CallOption) (*SetupTwoFAResponse, error)
 	EnableTwoFA(ctx context.Context, in *EnableTwoFARequest, opts ...grpc.CallOption) (*EnableTwoFAResponse, error)
 	DisableTwoFA(ctx context.Context, in *DisableTwoFARequest, opts ...grpc.CallOption) (*DisableTwoFAResponse, error)
 	VerifyTwoFA(ctx context.Context, in *VerifyTwoFARequest, opts ...grpc.CallOption) (*VerifyTwoFAResponse, error)
@@ -123,6 +125,16 @@ func (c *authServiceClient) RevokeToken(ctx context.Context, in *RevokeTokenRequ
 	return out, nil
 }
 
+func (c *authServiceClient) SetupTwoFA(ctx context.Context, in *SetupTwoFARequest, opts ...grpc.CallOption) (*SetupTwoFAResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetupTwoFAResponse)
+	err := c.cc.Invoke(ctx, AuthService_SetupTwoFA_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *authServiceClient) EnableTwoFA(ctx context.Context, in *EnableTwoFARequest, opts ...grpc.CallOption) (*EnableTwoFAResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(EnableTwoFAResponse)
@@ -188,6 +200,7 @@ type AuthServiceServer interface {
 	ValidateToken(context.Context, *ValidateTokenRequest) (*ValidateTokenResponse, error)
 	RevokeToken(context.Context, *RevokeTokenRequest) (*RevokeTokenResponse, error)
 	// Two-Factor Authentication
+	SetupTwoFA(context.Context, *SetupTwoFARequest) (*SetupTwoFAResponse, error)
 	EnableTwoFA(context.Context, *EnableTwoFARequest) (*EnableTwoFAResponse, error)
 	DisableTwoFA(context.Context, *DisableTwoFARequest) (*DisableTwoFAResponse, error)
 	VerifyTwoFA(context.Context, *VerifyTwoFARequest) (*VerifyTwoFAResponse, error)
@@ -221,6 +234,9 @@ func (UnimplementedAuthServiceServer) ValidateToken(context.Context, *ValidateTo
 }
 func (UnimplementedAuthServiceServer) RevokeToken(context.Context, *RevokeTokenRequest) (*RevokeTokenResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RevokeToken not implemented")
+}
+func (UnimplementedAuthServiceServer) SetupTwoFA(context.Context, *SetupTwoFARequest) (*SetupTwoFAResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetupTwoFA not implemented")
 }
 func (UnimplementedAuthServiceServer) EnableTwoFA(context.Context, *EnableTwoFARequest) (*EnableTwoFAResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EnableTwoFA not implemented")
@@ -366,6 +382,24 @@ func _AuthService_RevokeToken_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_SetupTwoFA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetupTwoFARequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).SetupTwoFA(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_SetupTwoFA_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).SetupTwoFA(ctx, req.(*SetupTwoFARequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AuthService_EnableTwoFA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EnableTwoFARequest)
 	if err := dec(in); err != nil {
@@ -488,6 +522,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AuthService_RevokeToken_Handler,
 		},
 		{
+			MethodName: "SetupTwoFA",
+			Handler:    _AuthService_SetupTwoFA_Handler,
+		},
+		{
 			MethodName: "EnableTwoFA",
 			Handler:    _AuthService_EnableTwoFA_Handler,
 		},
@@ -509,5 +547,5 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/auth/v1/auth.proto",
+	Metadata: "api/proto/auth/v1/auth.proto",
 }

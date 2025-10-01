@@ -17,6 +17,7 @@ service AuthService {
   rpc RevokeToken(RevokeTokenRequest) returns (RevokeTokenResponse);
   
   // Two-Factor Authentication
+  rpc SetupTwoFA(SetupTwoFARequest) returns (SetupTwoFAResponse);
   rpc EnableTwoFA(EnableTwoFARequest) returns (EnableTwoFAResponse);
   rpc DisableTwoFA(DisableTwoFARequest) returns (DisableTwoFAResponse);
   rpc VerifyTwoFA(VerifyTwoFARequest) returns (VerifyTwoFAResponse);
@@ -101,15 +102,26 @@ message RevokeTokenResponse {
 }
 
 // Two-Factor Authentication messages
+message SetupTwoFARequest{
+  string user_id = 1;
+}
+
+message SetupTwoFAResponse {
+  bool success = 1;
+  string message = 2;
+  string secret = 3;
+  string otp_url = 4;
+}
+
+
 message EnableTwoFARequest {
   string user_id = 1;
+  string code = 2;
 }
 
 message EnableTwoFAResponse {
   bool success = 1;
   string message = 2;
-  string qr_code_url = 3;
-  string secret_key = 4;
 }
 
 message DisableTwoFARequest {

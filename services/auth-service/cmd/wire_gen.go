@@ -101,7 +101,7 @@ func provideGRPCServer(appCfg *configs.AppConfig) (*configs.GRPCServer, error) {
 }
 
 func provideTwoFAUtil() *twofa.TwoFAUtil {
-	return twofa.NewTwoFAUtil("SupaGoodSongs")
+	return twofa.NewTwoFAUtil("OldMusicArchive")
 }
 
 func provideRedisUtil(client *redis2.Client) *redisutil.RedisUtil {

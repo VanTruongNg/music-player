@@ -6,7 +6,6 @@ import (
 	redisutil "auth-service/internal/utils/redis"
 	"auth-service/internal/utils/twofa"
 	"context"
-	"errors"
 	"time"
 )
 
@@ -72,10 +71,10 @@ func (s *twoFAService) Enable2FA(ctx context.Context, userID, code string) error
 	redisKey := "2fa:setup:" + userID
 	var setup twofa.SetupResult
 	if err := s.redisUtil.GetJSON(ctx, redisKey, &setup); err != nil || setup.Secret == "" {
-		return errors.New("2FA secret not found or expired")
+		return domain.ErrTwoFASetupExpired
 	}
 	if err := s.twoFAUtil.VerifyCode(setup.Secret, code); err != nil {
-		return err
+		return domain.ErrInvalidTwoFACode
 	}
 	user.TwoFAEnabled = true
 	user.TwoFASecret = setup.Secret
@@ -97,7 +96,10 @@ func (s *twoFAService) Verify2FA(ctx context.Context, userID, code string) error
 	if !user.TwoFAEnabled || user.TwoFASecret == "" {
 		return domain.ErrTwoFANotAvailable
 	}
-	return s.twoFAUtil.VerifyCode(user.TwoFASecret, code)
+	if err := s.twoFAUtil.VerifyCode(user.TwoFASecret, code); err != nil {
+		return domain.ErrInvalidTwoFACode
+	}
+	return nil
 }
 
 func (s *twoFAService) Disable2FA(ctx context.Context, userID string) error {

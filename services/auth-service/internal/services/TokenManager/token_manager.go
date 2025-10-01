@@ -71,8 +71,8 @@ func (tm *tokenManager) IssueInitialTokens(ctx context.Context, userID string) (
 	}
 
 	key := "auth:session:" + sid
-	accessTTL := tm.jwtService.GetAccessTTL()
-	err = tm.redisUtil.SetJSON(ctx, key, session, accessTTL)
+	refreshTTL := tm.jwtService.GetRefreshTTL()
+	err = tm.redisUtil.SetJSON(ctx, key, session, refreshTTL)
 	if err != nil {
 		return "", "", err
 	}

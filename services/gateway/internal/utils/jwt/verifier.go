@@ -10,20 +10,22 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// JWTVerifier handles JWT token verification using JWKS
-type JWTVerifier struct {
+type JWTVerifier interface {
+	VerifyToken(tokenStr string) (*AccessClaims, error)
+	ExtractTokenFromHeader(authHeader string) (string, error)
+}
+type jwtVerifier struct {
 	jwksClient *JWKSClient
 }
 
-// NewJWTVerifier creates a new JWT verifier
-func NewJWTVerifier(jwksClient *JWKSClient) *JWTVerifier {
-	return &JWTVerifier{
+func NewJWTVerifier(jwksClient *JWKSClient) JWTVerifier {
+	return &jwtVerifier{
 		jwksClient: jwksClient,
 	}
 }
 
-func (v *JWTVerifier) VerifyToken(tokenStr string) (*CustomClaims, error) {
-	claims := &CustomClaims{}
+func (v *jwtVerifier) VerifyToken(tokenStr string) (*AccessClaims, error) {
+	claims := &AccessClaims{}
 
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
@@ -62,7 +64,7 @@ func (v *JWTVerifier) VerifyToken(tokenStr string) (*CustomClaims, error) {
 	return claims, nil
 }
 
-func (v *JWTVerifier) getPublicKeyFromJWKS(kid string) (ed25519.PublicKey, error) {
+func (v *jwtVerifier) getPublicKeyFromJWKS(kid string) (ed25519.PublicKey, error) {
 	jwk, err := v.jwksClient.GetKeyByKID(kid)
 	if err != nil {
 		return nil, err
@@ -84,7 +86,7 @@ func (v *JWTVerifier) getPublicKeyFromJWKS(kid string) (ed25519.PublicKey, error
 	return ed25519.PublicKey(pubKeyBytes), nil
 }
 
-func ExtractTokenFromHeader(authHeader string) (string, error) {
+func (v *jwtVerifier) ExtractTokenFromHeader(authHeader string) (string, error) {
 	if authHeader == "" {
 		return "", ErrTokenInvalid
 	}
