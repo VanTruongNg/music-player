@@ -1,10 +1,5 @@
 version: '3.8'
 
-# =============================================================================
-# BigTech Production Docker Compose
-# Cloud-Native Architecture with Security and Performance Focus
-# =============================================================================
-
 # YAML anchors for DRY configuration
 x-logging: &default-logging
   driver: "json-file"
@@ -260,10 +255,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-  # -----------------------------------------------------------------------------
-  # Application Services - Environment-Driven với BigTech Standards
-  # -----------------------------------------------------------------------------
   auth-service:
     build:
       context: ./auth-service
