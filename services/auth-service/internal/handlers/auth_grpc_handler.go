@@ -269,8 +269,26 @@ func (h *AuthGRPCHandler) EnableTwoFA(ctx context.Context, req *authv1.EnableTwo
 
 // DisableTwoFA disables two-factor authentication
 func (h *AuthGRPCHandler) DisableTwoFA(ctx context.Context, req *authv1.DisableTwoFARequest) (*authv1.DisableTwoFAResponse, error) {
-	// TODO: Implement 2FA disable using twoFAService
+	if req.UserId == "" || req.Code == "" {
+		return &authv1.DisableTwoFAResponse{
+			Success: false,
+			Message: "User ID and code are required",
+		}, nil
+	}
 
+	err := h.twoFAService.Disable2FA(ctx, req.UserId, req.Code)
+	if err != nil {
+		if derr, ok := err.(*domain.DomainError); ok {
+			return &authv1.DisableTwoFAResponse{
+				Success: false,
+				Message: derr.Message,
+			}, nil
+		}
+		return &authv1.DisableTwoFAResponse{
+			Success: false,
+			Message: "Internal server error",
+		}, nil
+	}
 	return &authv1.DisableTwoFAResponse{
 		Success: true,
 		Message: "2FA disabled successfully",
@@ -279,10 +297,27 @@ func (h *AuthGRPCHandler) DisableTwoFA(ctx context.Context, req *authv1.DisableT
 
 // VerifyTwoFA verifies a 2FA code
 func (h *AuthGRPCHandler) VerifyTwoFA(ctx context.Context, req *authv1.VerifyTwoFARequest) (*authv1.VerifyTwoFAResponse, error) {
-	// TODO: Implement 2FA verification using twoFAService
-
+	if req.UserId == "" || req.Code == "" {
+		return &authv1.VerifyTwoFAResponse{
+			Success: false,
+			Message: "User ID and code are required",
+		}, nil
+	}
+	err := h.twoFAService.Verify2FA(ctx, req.UserId, req.Code)
+	if err != nil {
+		if derr, ok := err.(*domain.DomainError); ok {
+			return &authv1.VerifyTwoFAResponse{
+				Success: false,
+				Message: derr.Message,
+			}, nil
+		}
+		return &authv1.VerifyTwoFAResponse{
+			Success: false,
+			Message: "Internal server error",
+		}, nil
+	}
 	return &authv1.VerifyTwoFAResponse{
-		Valid:   true,
+		Success: true,
 		Message: "2FA code is valid",
 	}, nil
 }
