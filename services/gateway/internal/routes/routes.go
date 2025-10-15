@@ -42,6 +42,8 @@ func SetupAuthRoutes(
 	{
 		twoFA.POST("/setup", twoFAHandler.Setup2FA)
 		twoFA.POST("/enable", twoFAHandler.Enable2FA)
+		twoFA.POST("/verify", twoFAHandler.Verify2FA)
+		twoFA.POST("/disable", twoFAHandler.Disable2FA)
 	}
 
 	// User management routes (all protected)

@@ -73,7 +73,14 @@ func (h *TwoFAHandler) Verify2FA(c *gin.Context) {
 
 func (h *TwoFAHandler) Disable2FA(c *gin.Context) {
 	userID := c.Param("id")
-	if err := h.service.Disable2FA(c.Request.Context(), userID); err != nil {
+	var req struct {
+		Code string `json:"code"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Code == "" {
+		utils.Fail(c, http.StatusBadRequest, "INVALID_CODE", "Invalid code")
+		return
+	}
+	if err := h.service.Disable2FA(c.Request.Context(), userID, req.Code); err != nil {
 		if domainErr, ok := err.(*domain.DomainError); ok {
 			utils.Fail(c, domainErr.Status, domainErr.Code, domainErr.Message)
 		} else {

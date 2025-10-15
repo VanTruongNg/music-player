@@ -126,7 +126,7 @@ message EnableTwoFAResponse {
 
 message DisableTwoFARequest {
   string user_id = 1;
-  string two_fa_code = 2;
+  string code = 2;
 }
 
 message DisableTwoFAResponse {
@@ -136,11 +136,11 @@ message DisableTwoFAResponse {
 
 message VerifyTwoFARequest {
   string user_id = 1;
-  string two_fa_code = 2;
+  string code = 2;
 }
 
 message VerifyTwoFAResponse {
-  bool valid = 1;
+  bool success = 1;
   string message = 2;
 }
 

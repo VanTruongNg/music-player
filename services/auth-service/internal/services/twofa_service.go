@@ -13,7 +13,7 @@ type TwoFAService interface {
 	Setup2FA(ctx context.Context, userID string) (*twofa.SetupResult, error)
 	Enable2FA(ctx context.Context, userID, code string) error
 	Verify2FA(ctx context.Context, userID, code string) error
-	Disable2FA(ctx context.Context, userID string) error
+	Disable2FA(ctx context.Context, userID string, code string) error
 }
 
 type twoFAService struct {
@@ -68,6 +68,9 @@ func (s *twoFAService) Enable2FA(ctx context.Context, userID, code string) error
 	if user == nil {
 		return domain.ErrUserNotFound
 	}
+	if user.TwoFAEnabled {
+		return domain.ErrTwoFAEnabled
+	}
 	redisKey := "2fa:setup:" + userID
 	var setup twofa.SetupResult
 	if err := s.redisUtil.GetJSON(ctx, redisKey, &setup); err != nil || setup.Secret == "" {
@@ -87,10 +90,7 @@ func (s *twoFAService) Enable2FA(ctx context.Context, userID, code string) error
 
 func (s *twoFAService) Verify2FA(ctx context.Context, userID, code string) error {
 	user, err := s.userRepo.GetUserByID(ctx, userID)
-	if err != nil {
-		return err
-	}
-	if user == nil {
+	if err != nil || user == nil {
 		return domain.ErrUserNotFound
 	}
 	if !user.TwoFAEnabled || user.TwoFASecret == "" {
@@ -102,10 +102,16 @@ func (s *twoFAService) Verify2FA(ctx context.Context, userID, code string) error
 	return nil
 }
 
-func (s *twoFAService) Disable2FA(ctx context.Context, userID string) error {
+func (s *twoFAService) Disable2FA(ctx context.Context, userID string, code string) error {
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil || user == nil {
 		return domain.ErrUserNotFound
+	}
+	if !user.TwoFAEnabled || user.TwoFASecret == "" {
+		return domain.ErrTwoFANotAvailable
+	}
+	if err := s.twoFAUtil.VerifyCode(user.TwoFASecret, code); err != nil {
+		return domain.ErrInvalidTwoFACode
 	}
 	user.TwoFAEnabled = false
 	user.TwoFASecret = ""
