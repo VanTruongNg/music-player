@@ -1,9 +1,13 @@
 package middleware
 
 import (
+	"context"
 	"gateway/internal/utils"
 	"gateway/internal/utils/jwt"
 	"net/http"
+	"time"
+
+	redisutil "gateway/internal/utils/redis"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,11 +20,13 @@ const (
 
 type AuthMiddleware struct {
 	jwtVerifier jwt.JWTVerifier
+	redisUtil   *redisutil.RedisUtil
 }
 
-func NewAuthMiddleware(jwtVerifier jwt.JWTVerifier) *AuthMiddleware {
+func NewAuthMiddleware(jwtVerifier jwt.JWTVerifier, redisUtil *redisutil.RedisUtil) *AuthMiddleware {
 	return &AuthMiddleware{
 		jwtVerifier: jwtVerifier,
+		redisUtil:   redisUtil,
 	}
 }
 
@@ -67,6 +73,11 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		if m.validateSession(c, claims) {
+			utils.Fail(c, http.StatusUnauthorized, "SESSION_INVALID", "User session is invalid or has expired")
+			c.Abort()
+			return
+		}
 
 		m.setUserContext(c, claims)
 
@@ -78,6 +89,16 @@ func (m *AuthMiddleware) setUserContext(c *gin.Context, claims *jwt.AccessClaims
 	c.Set(ContextKeyUserID, claims.Subject)
 	c.Set(ContextKeyUserData, claims)
 	c.Set(ContextUserSID, claims.SID)
+}
+
+func (m *AuthMiddleware) validateSession(c *gin.Context, claims *jwt.AccessClaims) bool {
+	redisKey := "auth:session:" + claims.SID
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	var sessionData map[string]interface{}
+	err := m.redisUtil.GetJSON(ctx, redisKey, &sessionData)
+	return err != nil
 }
 
 func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {

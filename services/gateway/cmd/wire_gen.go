@@ -11,14 +11,17 @@ import (
 	"gateway/configs"
 	"gateway/internal/handlers"
 	"gateway/internal/middleware"
+	"gateway/internal/redis"
 	"gateway/internal/routes"
 	"gateway/internal/utils/jwt"
+	"gateway/internal/utils/redis"
 	"github.com/gin-gonic/gin"
+	redis2 "github.com/redis/go-redis/v9"
 )
 
 // Injectors from wire.go:
 
-func InitializeApp(appCfg *configs.AppConfig) (*App, error) {
+func InitializeApp(appCfg *configs.AppConfig, redisCfg *configs.RedisConfig) (*App, error) {
 	grpcClients, err := provideGRPCClients(appCfg)
 	if err != nil {
 		return nil, err
@@ -28,7 +31,9 @@ func InitializeApp(appCfg *configs.AppConfig) (*App, error) {
 	userHandler := handlers.NewUserHandler(grpcClients)
 	jwksClient := provideJWKSClient(appCfg)
 	jwtVerifier := jwt.NewJWTVerifier(jwksClient)
-	authMiddleware := middleware.NewAuthMiddleware(jwtVerifier)
+	client := redis.NewRedisClient(redisCfg)
+	redisUtil := provideRedisUtil(client)
+	authMiddleware := middleware.NewAuthMiddleware(jwtVerifier, redisUtil)
 	engine := provideRouter(authHandler, twoFAHandler, userHandler, authMiddleware)
 	app := provideApp(engine, grpcClients, authHandler, twoFAHandler, userHandler, authMiddleware)
 	return app, nil
@@ -83,4 +88,8 @@ func provideGRPCClients(appCfg *configs.AppConfig) (*configs.GRPCClients, error)
 
 func provideJWKSClient(appCfg *configs.AppConfig) *jwt.JWKSClient {
 	return jwt.NewJWKSClient(appCfg.AuthServiceHTTPURL)
+}
+
+func provideRedisUtil(redisClient *redis2.Client) *redisutil.RedisUtil {
+	return redisutil.NewRedisUtil(redisClient)
 }

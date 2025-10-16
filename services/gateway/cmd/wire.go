@@ -11,8 +11,12 @@ import (
 	"gateway/internal/routes"
 	"gateway/internal/utils/jwt"
 
+	"gateway/internal/redis"
+	redisutil "gateway/internal/utils/redis"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 type App struct {
@@ -24,8 +28,11 @@ type App struct {
 	AuthMiddleware *middleware.AuthMiddleware
 }
 
-func InitializeApp(appCfg *configs.AppConfig) (*App, error) {
+func InitializeApp(appCfg *configs.AppConfig, redisCfg *configs.RedisConfig) (*App, error) {
 	wire.Build(
+		// Infrastructure
+		redis.NewRedisClient,
+
 		// Handlers
 		handlers.NewAuthHandler,
 		handlers.NewTwoFAHandler,
@@ -40,6 +47,9 @@ func InitializeApp(appCfg *configs.AppConfig) (*App, error) {
 		provideRouter,
 		provideGRPCClients,
 		provideApp,
+
+		// Utilities
+		provideRedisUtil,
 	)
 	return nil, nil
 }
@@ -83,4 +93,8 @@ func provideGRPCClients(appCfg *configs.AppConfig) (*configs.GRPCClients, error)
 
 func provideJWKSClient(appCfg *configs.AppConfig) *jwt.JWKSClient {
 	return jwt.NewJWKSClient(appCfg.AuthServiceHTTPURL)
+}
+
+func provideRedisUtil(redisClient *goredis.Client) *redisutil.RedisUtil {
+	return redisutil.NewRedisUtil(redisClient)
 }
