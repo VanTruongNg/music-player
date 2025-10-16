@@ -3,18 +3,18 @@ package configs
 import (
 	"fmt"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 )
 
-// GRPCServer wraps the gRPC server
 type GRPCServer struct {
 	server   *grpc.Server
 	listener net.Listener
 }
 
-// NewGRPCServer creates a new gRPC server instance
 func NewGRPCServer(port string) (*GRPCServer, error) {
 	addr := fmt.Sprintf(":%s", port)
 	lis, err := net.Listen("tcp", addr)
@@ -23,18 +23,25 @@ func NewGRPCServer(port string) (*GRPCServer, error) {
 	}
 
 	opts := []grpc.ServerOption{
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             15 * time.Second,
+			PermitWithoutStream: true,
+		}),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    60 * time.Second,
+			Timeout: 10 * time.Second,
+		}),
+
+		grpc.MaxConcurrentStreams(1024),
+
 		grpc.MaxRecvMsgSize(4 * 1024 * 1024),
 		grpc.MaxSendMsgSize(4 * 1024 * 1024),
 	}
 
-	server := grpc.NewServer(opts...)
+	s := grpc.NewServer(opts...)
+	reflection.Register(s)
 
-	reflection.Register(server)
-
-	return &GRPCServer{
-		server:   server,
-		listener: lis,
-	}, nil
+	return &GRPCServer{server: s, listener: lis}, nil
 }
 
 // GetServer returns the underlying gRPC server
