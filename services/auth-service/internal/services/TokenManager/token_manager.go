@@ -17,11 +17,15 @@ const (
 )
 
 type SessionInfo struct {
-	UserID    string    `json:"user_id"`
-	SV        uint64    `json:"sv"`
-	IP        string    `json:"ip"`
-	UserAgent string    `json:"user_agent"`
-	CreatedAt time.Time `json:"created_at"`
+	UserID      string    `json:"user_id"`
+	Status      string    `json:"status"`
+	AV          uint64    `json:"av"`
+	IP          string    `json:"ip"`
+	UserAgent   string    `json:"user_agent"`
+	CreatedAt   time.Time `json:"created_at"`
+	RTCurrent   string    `json:"rt_current"`
+	RTPrev      string    `json:"rt_prev"`
+	RTRotatedAt time.Time `json:"rt_rotated_at"`
 }
 
 type TokenManager interface {
@@ -50,24 +54,29 @@ func (tm *tokenManager) IssueInitialTokens(ctx context.Context, userID string) (
 	userAgent := getStringFromContext(ctx, CtxKeyUserAgent)
 
 	sid := ulid.Make().String()
-	const svInit uint64 = 1
+	jti := ulid.Make().String()
+	const avInit uint64 = 1
 
-	accessToken, _, err := tm.jwtService.SignAccessToken(userID, sid, svInit)
+	accessToken, _, err := tm.jwtService.SignAccessToken(userID, sid, avInit)
 	if err != nil {
 		return "", "", err
 	}
 
-	refreshToken, _, err := tm.jwtService.SignRefreshToken(userID)
+	refreshToken, _, err := tm.jwtService.SignRefreshToken(userID, jti)
 	if err != nil {
 		return "", "", err
 	}
 
 	session := SessionInfo{
-		UserID:    userID,
-		SV:        svInit,
-		IP:        ip,
-		UserAgent: userAgent,
-		CreatedAt: time.Now().UTC(),
+		UserID:      userID,
+		AV:          avInit,
+		IP:          ip,
+		UserAgent:   userAgent,
+		CreatedAt:   time.Now().UTC(),
+		Status:      "active",
+		RTCurrent:   jti,
+		RTPrev:      "",
+		RTRotatedAt: time.Now().UTC(),
 	}
 
 	key := "auth:session:" + sid

@@ -12,8 +12,8 @@ import (
 )
 
 type JWTService interface {
-	SignAccessToken(userID, sid string, sv uint64) (string, time.Time, error)
-	SignRefreshToken(userID string) (string, time.Time, error)
+	SignAccessToken(userID, sid string, av uint64) (string, time.Time, error)
+	SignRefreshToken(userID string, jti string) (string, time.Time, error)
 	VerifyAccessToken(tokenStr string, isRefresh bool) (*AccessClaims, error)
 	ExtractTokenFromHeader(authHeader string) (string, error)
 	GetAccessTTL() time.Duration
@@ -31,13 +31,13 @@ func NewJWTService(cfg *JWTConfig) JWTService {
 	}
 }
 
-func (j *jwtService) SignAccessToken(userID, sid string, sv uint64) (string, time.Time, error) {
+func (j *jwtService) SignAccessToken(userID, sid string, av uint64) (string, time.Time, error) {
 	now := time.Now().UTC()
 	exp := now.Add(j.cfg.AccessTTL)
 
 	claims := &AccessClaims{
 		SID: sid,
-		SV:  sv,
+		AV:  av,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(exp),
@@ -52,12 +52,13 @@ func (j *jwtService) SignAccessToken(userID, sid string, sv uint64) (string, tim
 	return signed, exp, err
 }
 
-func (j *jwtService) SignRefreshToken(userID string) (string, time.Time, error) {
+func (j *jwtService) SignRefreshToken(userID string, jti string) (string, time.Time, error) {
 	now := time.Now().UTC()
 	exp := now.Add(j.cfg.RefreshTTL)
 
 	claims := &RefreshClaims{
 		UserID: userID,
+		JTI:    jti,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(exp),

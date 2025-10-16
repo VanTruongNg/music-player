@@ -15,8 +15,9 @@ import (
 
 func main() {
 	appCfg := configs.LoadAppConfig()
+	redisCfg := configs.LoadRedisConfig()
 
-	app, err := InitializeApp(appCfg)
+	app, err := InitializeApp(appCfg, redisCfg)
 	if err != nil {
 		log.Fatalf("[FATAL] Failed to initialize app: %v", err)
 	}
