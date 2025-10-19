@@ -73,7 +73,7 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		if m.validateSession(c, claims) {
+		if !m.validateSession(c, claims) {
 			utils.Fail(c, http.StatusUnauthorized, "SESSION_INVALID", "User session is invalid or has expired")
 			c.Abort()
 			return
@@ -96,9 +96,21 @@ func (m *AuthMiddleware) validateSession(c *gin.Context, claims *jwt.AccessClaim
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	var sessionData map[string]interface{}
-	err := m.redisUtil.GetJSON(ctx, redisKey, &sessionData)
-	return err != nil
+	var sess struct {
+		Status string `json:"status"`
+		AV     uint64 `json:"av"`
+	}
+	if err := m.redisUtil.GetJSON(ctx, redisKey, &sess); err != nil {
+		return false
+	}
+	if sess.Status != "active" {
+		return false
+	}
+	if sess.AV != claims.AV {
+		return false
+	}
+
+	return true
 }
 
 func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {

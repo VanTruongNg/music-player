@@ -30,6 +30,7 @@ type SessionInfo struct {
 
 type TokenManager interface {
 	IssueInitialTokens(ctx context.Context, userID string) (string, string, error)
+	RefreshToken(ctx context.Context, claims *jwt.RefreshClaims) (string, string, error)
 }
 
 type tokenManager struct {
@@ -62,7 +63,7 @@ func (tm *tokenManager) IssueInitialTokens(ctx context.Context, userID string) (
 		return "", "", err
 	}
 
-	refreshToken, _, err := tm.jwtService.SignRefreshToken(userID, jti)
+	refreshToken, _, err := tm.jwtService.SignRefreshToken(userID, sid, jti)
 	if err != nil {
 		return "", "", err
 	}
@@ -85,5 +86,46 @@ func (tm *tokenManager) IssueInitialTokens(ctx context.Context, userID string) (
 	if err != nil {
 		return "", "", err
 	}
+	return accessToken, refreshToken, nil
+}
+
+func (tm *tokenManager) RefreshToken(ctx context.Context, claims *jwt.RefreshClaims) (string, string, error) {
+	ip := getStringFromContext(ctx, CtxKeyIP)
+	userAgent := getStringFromContext(ctx, CtxKeyUserAgent)
+
+	key := "auth:session:" + claims.SID
+	var sess SessionInfo
+	if err := tm.redisUtil.GetJSON(ctx, key, &sess); err != nil {
+		return "", "", jwt.ErrSessionNotFound
+	}
+
+	if sess.Status != "active" {
+		return "", "", jwt.ErrSessionRevoked
+	}
+
+	newJTI := ulid.Make().String()
+	sess.AV++
+
+	accessToken, _, err := tm.jwtService.SignAccessToken(claims.UserID, claims.SID, sess.AV)
+	if err != nil {
+		return "", "", err
+	}
+
+	refreshToken, _, err := tm.jwtService.SignRefreshToken(claims.UserID, claims.SID, newJTI)
+	if err != nil {
+		return "", "", err
+	}
+
+	prev := sess.RTCurrent
+	sess.RTPrev = prev
+	sess.RTCurrent = newJTI
+	sess.RTRotatedAt = time.Now().UTC()
+	sess.IP = ip
+	sess.UserAgent = userAgent
+
+	if err := tm.redisUtil.SetJSON(ctx, key, sess, tm.jwtService.GetRefreshTTL()); err != nil {
+		return "", "", err
+	}
+
 	return accessToken, refreshToken, nil
 }

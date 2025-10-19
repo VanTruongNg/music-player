@@ -16,6 +16,7 @@ type UserService interface {
 	GetMe(ctx context.Context, userID string) (*domain.User, error)
 	Register(ctx context.Context, req *dto.UserCreateRequest) (*domain.User, error)
 	Login(ctx context.Context, req *dto.UserLoginRequest) (*domain.User, string, string, error)
+	RefreshToken(ctx context.Context, token string) (string, string, error)
 }
 
 type userService struct {
@@ -114,4 +115,17 @@ func (s *userService) Login(ctx context.Context, req *dto.UserLoginRequest) (*do
 	}
 
 	return updatedUser, accessToken, refreshToken, nil
+}
+
+func (s *userService) RefreshToken(ctx context.Context, token string) (string, string, error) {
+	claims, err := s.jwtService.VerifyRefreshToken(token)
+	if err != nil {
+		return "", "", err
+	}
+
+	newAccessToken, newRefreshToken, err := s.tokenManager.RefreshToken(ctx, claims)
+	if err != nil {
+		return "", "", err
+	}
+	return newAccessToken, newRefreshToken, nil
 }

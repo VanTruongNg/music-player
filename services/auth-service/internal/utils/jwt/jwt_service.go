@@ -13,8 +13,9 @@ import (
 
 type JWTService interface {
 	SignAccessToken(userID, sid string, av uint64) (string, time.Time, error)
-	SignRefreshToken(userID string, jti string) (string, time.Time, error)
-	VerifyAccessToken(tokenStr string, isRefresh bool) (*AccessClaims, error)
+	SignRefreshToken(userID string, sid string, jti string) (string, time.Time, error)
+	VerifyAccessToken(tokenStr string) (*AccessClaims, error)
+	VerifyRefreshToken(tokenStr string) (*RefreshClaims, error)
 	ExtractTokenFromHeader(authHeader string) (string, error)
 	GetAccessTTL() time.Duration
 	GetRefreshTTL() time.Duration
@@ -52,13 +53,14 @@ func (j *jwtService) SignAccessToken(userID, sid string, av uint64) (string, tim
 	return signed, exp, err
 }
 
-func (j *jwtService) SignRefreshToken(userID string, jti string) (string, time.Time, error) {
+func (j *jwtService) SignRefreshToken(userID string, sid string, jti string) (string, time.Time, error) {
 	now := time.Now().UTC()
 	exp := now.Add(j.cfg.RefreshTTL)
 
 	claims := &RefreshClaims{
 		UserID: userID,
 		JTI:    jti,
+		SID:    sid,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(exp),
@@ -71,40 +73,30 @@ func (j *jwtService) SignRefreshToken(userID string, jti string) (string, time.T
 	return signed, exp, err
 }
 
-func (j *jwtService) VerifyAccessToken(tokenStr string, isRefresh bool) (*AccessClaims, error) {
+func (j *jwtService) VerifyAccessToken(tokenStr string) (*AccessClaims, error) {
 	claims := &AccessClaims{}
 
-	var keyFunc jwt.Keyfunc
-	if isRefresh {
-		keyFunc = func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, ErrUnexpectedSigningMethod
-			}
-			return []byte(j.cfg.RefreshSecret), nil
+	keyFunc := func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
+			return nil, ErrUnexpectedSigningMethod
 		}
-	} else {
-		keyFunc = func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
-				return nil, ErrUnexpectedSigningMethod
-			}
 
-			kidInterface, exists := token.Header["kid"]
-			if !exists {
-				return nil, ErrTokenInvalid
-			}
-
-			kid, ok := kidInterface.(string)
-			if !ok {
-				return nil, ErrTokenInvalid
-			}
-
-			publicKey, err := j.cfg.GetPublicKeyFromJWKS(kid)
-			if err != nil {
-				return nil, ErrTokenInvalid
-			}
-
-			return publicKey, nil
+		kidInterface, exists := token.Header["kid"]
+		if !exists {
+			return nil, ErrTokenInvalid
 		}
+
+		kid, ok := kidInterface.(string)
+		if !ok {
+			return nil, ErrTokenInvalid
+		}
+
+		publicKey, err := j.cfg.GetPublicKeyFromJWKS(kid)
+		if err != nil {
+			return nil, ErrTokenInvalid
+		}
+
+		return publicKey, nil
 	}
 
 	token, err := jwt.ParseWithClaims(tokenStr, claims, keyFunc)
@@ -115,6 +107,36 @@ func (j *jwtService) VerifyAccessToken(tokenStr string, isRefresh bool) (*Access
 		}
 		return nil, ErrTokenInvalid
 	}
+	if !token.Valid {
+		return nil, ErrTokenInvalid
+	}
+	return claims, nil
+}
+
+func (j *jwtService) VerifyRefreshToken(tokenStr string) (*RefreshClaims, error) {
+	claims := &RefreshClaims{}
+
+	keyFunc := func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, ErrUnexpectedSigningMethod
+		}
+		return []byte(j.cfg.RefreshSecret), nil
+	}
+
+	token, err := jwt.ParseWithClaims(
+		tokenStr,
+		claims,
+		keyFunc,
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithLeeway(5*time.Second),
+	)
+	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, ErrTokenExpired
+		}
+		return nil, ErrTokenInvalid
+	}
+
 	if !token.Valid {
 		return nil, ErrTokenInvalid
 	}
