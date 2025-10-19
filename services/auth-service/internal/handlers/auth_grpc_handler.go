@@ -177,20 +177,51 @@ func (h *AuthGRPCHandler) ValidateToken(ctx context.Context, req *authv1.Validat
 
 // RefreshToken handles token refresh
 func (h *AuthGRPCHandler) RefreshToken(ctx context.Context, req *authv1.RefreshTokenRequest) (*authv1.RefreshTokenResponse, error) {
-	// TODO: Implement token refresh using tokenManager
+	clientIP := "unknown"
+	userAgent := "unknown"
+	refreshToken := ""
 
-	if req.RefreshToken == "" {
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if ips := md.Get("x-client-ip"); len(ips) > 0 {
+			clientIP = ips[0]
+		}
+		if uas := md.Get("x-user-agent"); len(uas) > 0 {
+			userAgent = uas[0]
+		}
+		if tokens := md.Get("refresh_token"); len(tokens) > 0 {
+			refreshToken = tokens[0]
+		}
+	}
+
+	newCtx := context.WithValue(ctx, tokenmanager.CtxKeyIP, clientIP)
+	newCtx = context.WithValue(newCtx, tokenmanager.CtxKeyUserAgent, userAgent)
+
+	if refreshToken == "" {
 		return &authv1.RefreshTokenResponse{
 			Success: false,
 			Message: "Refresh token is required",
 		}, nil
 	}
 
+	accessToken, newRefreshToken, err := h.userService.RefreshToken(newCtx, refreshToken)
+	if err != nil {
+		if derr, ok := err.(*domain.DomainError); ok {
+			return &authv1.RefreshTokenResponse{
+				Success: false,
+				Message: derr.Message,
+			}, nil
+		}
+		return &authv1.RefreshTokenResponse{
+			Success: false,
+			Message: "Internal server error",
+		}, nil
+	}
+
 	return &authv1.RefreshTokenResponse{
 		Success:      true,
 		Message:      "Token refreshed successfully",
-		AccessToken:  "new_access_token",
-		RefreshToken: "new_refresh_token",
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
 		ExpiresIn:    3600,
 	}, nil
 }

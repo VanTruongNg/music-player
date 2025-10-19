@@ -39,7 +39,7 @@ func (mw *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		claims, err := mw.jwtService.VerifyAccessToken(token, false)
+		claims, err := mw.jwtService.VerifyAccessToken(token)
 		if err != nil {
 			var code, message string
 			switch err {
@@ -86,7 +86,7 @@ func (mw *AuthMiddleware) validateSession(c *gin.Context) bool {
 		return false
 	}
 
-	refreshClaims, err := mw.jwtService.VerifyAccessToken(refreshToken, true)
+	refreshClaims, err := mw.jwtService.VerifyAccessToken(refreshToken)
 	if err != nil {
 		utils.Fail(c, http.StatusUnauthorized, "SESSION_INVALID", "Invalid session - please login again")
 		return false
@@ -96,7 +96,6 @@ func (mw *AuthMiddleware) validateSession(c *gin.Context) bool {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	// Try to get session data from Redis as JSON
 	var sessionData map[string]interface{}
 	err = mw.redisUtil.GetJSON(ctx, redisKey, &sessionData)
 	if err != nil {

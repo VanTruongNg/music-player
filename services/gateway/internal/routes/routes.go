@@ -25,13 +25,13 @@ func SetupAuthRoutes(
 	{
 		auth.POST("/login", authHandler.Login)
 		auth.POST("/register", authHandler.Register)
+		auth.POST("/refresh", authHandler.RefreshToken)
 
 		// Protected auth routes
 		authProtected := auth.Group("")
 		authProtected.Use(authMiddleware.RequireAuth())
 		{
 			authProtected.POST("/logout", authHandler.Logout)
-			authProtected.POST("/refresh", authHandler.RefreshToken)
 			authProtected.GET("/validate", authHandler.ValidateToken)
 		}
 	}

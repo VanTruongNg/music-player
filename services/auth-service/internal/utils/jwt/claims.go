@@ -11,5 +11,6 @@ type AccessClaims struct {
 type RefreshClaims struct {
 	UserID string `json:"user_id"`
 	JTI    string `json:"jti"`
+	SID    string `json:"sid"`
 	jwt.RegisteredClaims
 }

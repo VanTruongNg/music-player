@@ -207,12 +207,22 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+
+	md := metadata.Pairs(
+		"x-client-ip", clientIP,
+		"x-user-agent", userAgent,
+		"x-real-ip", c.GetHeader("X-Real-IP"),
+		"x-forwarded-for", c.GetHeader("X-Forwarded-For"),
+		"refresh_token", refreshToken,
+	)
+	ctx := metadata.NewOutgoingContext(c.Request.Context(), md)
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	resp, err := h.grpcClients.AuthClient.RefreshToken(ctx, &authv1.RefreshTokenRequest{
-		RefreshToken: refreshToken,
-	})
+	resp, err := h.grpcClients.AuthClient.RefreshToken(ctx, &authv1.RefreshTokenRequest{})
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
