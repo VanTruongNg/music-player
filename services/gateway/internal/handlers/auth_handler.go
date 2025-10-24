@@ -98,11 +98,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Invalid request format",
-			"error":   err.Error(),
-		})
+		utils.Fail(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 		return
 	}
 
@@ -126,10 +122,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if !resp.Success {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": resp.Message,
-		})
+		utils.Fail(c, http.StatusBadRequest, "REGISTRATION_FAILED", resp.Message)
 		return
 	}
 
@@ -260,31 +253,26 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
-	authHeader := c.GetHeader("Authorization")
-	refreshToken, _ := c.Cookie("refresh_token")
-
-	var accessToken string
-	if authHeader != "" {
-		const bearerPrefix = "Bearer "
-		if len(authHeader) >= len(bearerPrefix) && authHeader[:len(bearerPrefix)] == bearerPrefix {
-			accessToken = authHeader[len(bearerPrefix):]
-		}
+	sid, exists := c.Get("user_sid")
+	if !exists {
+		utils.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "Session ID not found")
+		return
 	}
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	resp, err := h.grpcClients.AuthClient.Logout(ctx, &authv1.LogoutRequest{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
+		Sid: sid.(string),
 	})
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "Authentication service unavailable",
-			"error":   err.Error(),
-		})
+		utils.Fail(c, http.StatusInternalServerError, "Authentication Service Unavailable", err.Error())
+		return
+	}
+
+	if !resp.Success {
+		utils.Fail(c, http.StatusBadRequest, "LOGOUT_FAILED", resp.Message)
 		return
 	}
 

@@ -6,6 +6,7 @@ import (
 	"auth-service/internal/services"
 	tokenmanager "auth-service/internal/services/TokenManager"
 	"context"
+	"fmt"
 	authv1 "music-player/api/proto/auth/v1"
 	"time"
 
@@ -228,7 +229,28 @@ func (h *AuthGRPCHandler) RefreshToken(ctx context.Context, req *authv1.RefreshT
 
 // Logout handles user logout
 func (h *AuthGRPCHandler) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1.LogoutResponse, error) {
-	// TODO: Implement logout logic (revoke tokens)
+	if req.Sid == "" {
+		return &authv1.LogoutResponse{
+			Success: false,
+			Message: "Session ID is required",
+		}, nil
+	}
+
+	fmt.Println(req.Sid)
+
+	err := h.userService.Logout(ctx, req.Sid)
+	if err != nil {
+		if derr, ok := err.(*domain.DomainError); ok {
+			return &authv1.LogoutResponse{
+				Success: false,
+				Message: derr.Message,
+			}, nil
+		}
+		return &authv1.LogoutResponse{
+			Success: false,
+			Message: "Internal server error",
+		}, nil
+	}
 
 	return &authv1.LogoutResponse{
 		Success: true,

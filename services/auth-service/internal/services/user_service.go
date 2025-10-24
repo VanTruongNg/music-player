@@ -17,6 +17,7 @@ type UserService interface {
 	Register(ctx context.Context, req *dto.UserCreateRequest) (*domain.User, error)
 	Login(ctx context.Context, req *dto.UserLoginRequest) (*domain.User, string, string, error)
 	RefreshToken(ctx context.Context, token string) (string, string, error)
+	Logout(ctx context.Context, sid string) error
 }
 
 type userService struct {
@@ -128,4 +129,8 @@ func (s *userService) RefreshToken(ctx context.Context, token string) (string, s
 		return "", "", err
 	}
 	return newAccessToken, newRefreshToken, nil
+}
+
+func (s *userService) Logout(ctx context.Context, sid string) error {
+	return s.tokenManager.RevokeSession(ctx, sid)
 }

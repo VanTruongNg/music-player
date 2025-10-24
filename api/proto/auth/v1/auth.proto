@@ -58,7 +58,7 @@ message RegisterResponse {
 
 // Logout messages
 message LogoutRequest {
-  string access_token = 1;
+  string sid = 1;
 }
 
 message LogoutResponse {
