@@ -6,7 +6,6 @@ import (
 	"auth-service/internal/services"
 	tokenmanager "auth-service/internal/services/TokenManager"
 	"context"
-	"fmt"
 	authv1 "music-player/api/proto/auth/v1"
 	"time"
 
@@ -235,8 +234,6 @@ func (h *AuthGRPCHandler) Logout(ctx context.Context, req *authv1.LogoutRequest)
 			Message: "Session ID is required",
 		}, nil
 	}
-
-	fmt.Println(req.Sid)
 
 	err := h.userService.Logout(ctx, req.Sid)
 	if err != nil {
