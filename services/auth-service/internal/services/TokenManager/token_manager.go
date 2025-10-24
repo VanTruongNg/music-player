@@ -31,6 +31,7 @@ type SessionInfo struct {
 type TokenManager interface {
 	IssueInitialTokens(ctx context.Context, userID string) (string, string, error)
 	RefreshToken(ctx context.Context, claims *jwt.RefreshClaims) (string, string, error)
+	RevokeSession(ctx context.Context, sid string) error
 }
 
 type tokenManager struct {
@@ -128,4 +129,27 @@ func (tm *tokenManager) RefreshToken(ctx context.Context, claims *jwt.RefreshCla
 	}
 
 	return accessToken, refreshToken, nil
+}
+
+func (tm *tokenManager) RevokeSession(ctx context.Context, sid string) error {
+	key := "auth:session:" + sid
+	var sess SessionInfo
+	if err := tm.redisUtil.GetJSON(ctx, key, &sess); err != nil {
+		return jwt.ErrSessionNotFound
+	}
+	if sess.Status != "active" {
+		return jwt.ErrSessionRevoked
+	}
+	sess.Status = "revoked"
+	sess.RTCurrent = ""
+	sess.RTPrev = ""
+
+	const tombstone = 24 * time.Hour
+
+	rem := tm.redisUtil.PTTL(ctx, key)
+	if rem <= 0 || rem > tombstone {
+		rem = tombstone
+	}
+
+	return tm.redisUtil.SetJSON(ctx, key, sess, rem)
 }
