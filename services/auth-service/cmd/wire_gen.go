@@ -10,7 +10,8 @@ import (
 	"auth-service/configs"
 	"auth-service/internal/db"
 	"auth-service/internal/handlers"
-	"auth-service/internal/kafka"
+	"auth-service/internal/kafka/consumer"
+	"auth-service/internal/kafka/producer"
 	"auth-service/internal/middleware"
 	"auth-service/internal/redis"
 	"auth-service/internal/repositories"
@@ -20,7 +21,6 @@ import (
 	"auth-service/internal/utils/jwt"
 	"auth-service/internal/utils/redis"
 	"auth-service/internal/utils/twofa"
-	"github.com/IBM/sarama"
 	"github.com/gin-gonic/gin"
 	redis2 "github.com/redis/go-redis/v9"
 	"music-player/api/proto/auth/v1"
@@ -51,16 +51,16 @@ func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg 
 	if err != nil {
 		return nil, err
 	}
-	syncProducer, err := kafka.NewKafkaProducer(kafkaCfg)
+	producerProducer, err := producer.NewProducer(kafkaCfg)
 	if err != nil {
 		return nil, err
 	}
-	consumerGroup, err := kafka.NewKafkaConsumer(kafkaCfg)
+	consumerConsumer, err := consumer.NewConsumer(kafkaCfg)
 	if err != nil {
 		return nil, err
 	}
 	authGRPCHandler := handlers.NewAuthGRPCHandler(userService, twoFAService)
-	app := provideApp(engine, grpcServer, syncProducer, consumerGroup, authGRPCHandler)
+	app := provideApp(engine, grpcServer, producerProducer, consumerConsumer, authGRPCHandler)
 	return app, nil
 }
 
@@ -69,8 +69,8 @@ func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg 
 type App struct {
 	Router        *gin.Engine
 	GRPCServer    *configs.GRPCServer
-	KafkaProducer sarama.SyncProducer
-	KafkaConsumer sarama.ConsumerGroup
+	KafkaProducer *producer.Producer
+	KafkaConsumer *consumer.Consumer
 }
 
 func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.TwoFAHandler, jwksHandler *handlers.JWKSHandler, authMiddleware *middleware.AuthMiddleware) *gin.Engine {
@@ -85,7 +85,7 @@ func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.Two
 	return r
 }
 
-func provideApp(router *gin.Engine, grpcServer *configs.GRPCServer, kafkaProducer sarama.SyncProducer, kafkaConsumer sarama.ConsumerGroup, authGRPCHandler *handlers.AuthGRPCHandler) *App {
+func provideApp(router *gin.Engine, grpcServer *configs.GRPCServer, kafkaProducer *producer.Producer, kafkaConsumer *consumer.Consumer, authGRPCHandler *handlers.AuthGRPCHandler) *App {
 	authv1.RegisterAuthServiceServer(grpcServer.GetServer(), authGRPCHandler)
 
 	return &App{
@@ -101,7 +101,7 @@ func provideGRPCServer(appCfg *configs.AppConfig) (*configs.GRPCServer, error) {
 }
 
 func provideTwoFAUtil() *twofa.TwoFAUtil {
-	return twofa.NewTwoFAUtil("OldMusicArchive")
+	return twofa.NewTwoFAUtil("SupaGoodSongs")
 }
 
 func provideRedisUtil(client *redis2.Client) *redisutil.RedisUtil {

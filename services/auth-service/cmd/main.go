@@ -83,11 +83,8 @@ func main() {
 	}
 
 	if app.KafkaProducer != nil {
-		if err := app.KafkaProducer.Close(); err != nil {
-			log.Printf("[ERROR] Failed to close Kafka producer: %v", err)
-		} else {
-			log.Println("[INFO] Kafka producer closed successfully")
-		}
+		app.KafkaProducer.Close()
+		log.Println("[INFO] Kafka producer closed successfully")
 	}
 
 	if app.GRPCServer != nil {
@@ -97,11 +94,8 @@ func main() {
 	}
 
 	if app.KafkaConsumer != nil {
-		if err := app.KafkaConsumer.Close(); err != nil {
-			log.Printf("[ERROR] Failed to close Kafka consumer: %v", err)
-		} else {
-			log.Println("[INFO] Kafka consumer closed successfully")
-		}
+		app.KafkaConsumer.Close()
+		log.Println("[INFO] Kafka consumer closed successfully")
 	}
 
 	done := make(chan struct{})

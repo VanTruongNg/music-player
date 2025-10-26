@@ -9,25 +9,39 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	"notification/configs"
+	"notification/internal/kafka/consumer"
+	"notification/internal/kafka/producer"
 )
 
 // Injectors from wire.go:
 
-func InitializeApp(app *configs.AppConfig) (*App, error) {
+func InitializeApp(app *configs.AppConfig, kafkaCfg *configs.KafkaConfig) (*App, error) {
 	engine := provideRouter()
-	mainApp := provideApp(engine)
+	producerProducer, err := producer.NewProducer(kafkaCfg)
+	if err != nil {
+		return nil, err
+	}
+	consumerConsumer, err := consumer.NewConsumer(kafkaCfg)
+	if err != nil {
+		return nil, err
+	}
+	mainApp := provideApp(engine, producerProducer, consumerConsumer)
 	return mainApp, nil
 }
 
 // wire.go:
 
 type App struct {
-	Router *gin.Engine
+	Router        *gin.Engine
+	KafkaProducer *producer.Producer
+	KafkaConsumer *consumer.Consumer
 }
 
-func provideApp(router *gin.Engine) *App {
+func provideApp(router *gin.Engine, kafkaProducer *producer.Producer, kafkaConsumer *consumer.Consumer) *App {
 	return &App{
-		Router: router,
+		Router:        router,
+		KafkaProducer: kafkaProducer,
+		KafkaConsumer: kafkaConsumer,
 	}
 }
 

@@ -12,12 +12,6 @@
 data/
 !data/.gitkeep
 
-# Database data
-postgres/
-redis/
-kafka/
-zookeeper/
-
 # Docker files
 .docker/
 docker-compose.override.yml
