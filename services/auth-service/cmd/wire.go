@@ -7,7 +7,8 @@ import (
 	"auth-service/configs"
 	"auth-service/internal/db"
 	"auth-service/internal/handlers"
-	"auth-service/internal/kafka"
+	"auth-service/internal/kafka/consumer"
+	"auth-service/internal/kafka/producer"
 	"auth-service/internal/middleware"
 	"auth-service/internal/redis"
 	"auth-service/internal/repositories"
@@ -22,7 +23,6 @@ import (
 
 	authv1 "music-player/api/proto/auth/v1"
 
-	"github.com/IBM/sarama"
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
 	goredis "github.com/redis/go-redis/v9"
@@ -31,8 +31,8 @@ import (
 type App struct {
 	Router        *gin.Engine
 	GRPCServer    *configs.GRPCServer
-	KafkaProducer sarama.SyncProducer
-	KafkaConsumer sarama.ConsumerGroup
+	KafkaProducer *producer.Producer
+	KafkaConsumer *consumer.Consumer
 }
 
 func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg *configs.RedisConfig, kafkaCfg *configs.KafkaConfig) (*App, error) {
@@ -40,8 +40,8 @@ func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg 
 		// Infrastructure
 		db.NewGormDB,
 		redis.NewRedisClient,
-		kafka.NewKafkaProducer,
-		kafka.NewKafkaConsumer,
+		producer.NewProducer,
+		consumer.NewConsumer,
 
 		// Repositories
 		repositories.NewUserRepository,
@@ -86,7 +86,7 @@ func provideRouter(userHandler *handlers.UserHandler, twoFAHandler *handlers.Two
 	return r
 }
 
-func provideApp(router *gin.Engine, grpcServer *configs.GRPCServer, kafkaProducer sarama.SyncProducer, kafkaConsumer sarama.ConsumerGroup, authGRPCHandler *handlers.AuthGRPCHandler) *App {
+func provideApp(router *gin.Engine, grpcServer *configs.GRPCServer, kafkaProducer *producer.Producer, kafkaConsumer *consumer.Consumer, authGRPCHandler *handlers.AuthGRPCHandler) *App {
 	authv1.RegisterAuthServiceServer(grpcServer.GetServer(), authGRPCHandler)
 
 	return &App{

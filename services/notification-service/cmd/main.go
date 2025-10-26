@@ -15,8 +15,9 @@ import (
 
 func main() {
 	appCfg := configs.LoadAppConfig()
+	kafkaCfg := configs.LoadKafkaConfig()
 
-	app, err := InitializeApp(appCfg)
+	app, err := InitializeApp(appCfg, kafkaCfg)
 	if err != nil {
 		log.Fatalf("[FATAL] Failed to initialize app: %v", err)
 	}
@@ -63,6 +64,14 @@ func main() {
 		log.Printf("[ERROR] HTTP server forced to shutdown: %v", err)
 	} else {
 		log.Println("[INFO] HTTP server stopped successfully")
+	}
+
+	if app.KafkaProducer != nil {
+		app.KafkaProducer.Close()
+	}
+
+	if app.KafkaConsumer != nil {
+		app.KafkaConsumer.Close()
 	}
 
 	done := make(chan struct{})
