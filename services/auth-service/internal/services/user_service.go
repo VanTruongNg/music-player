@@ -7,6 +7,7 @@ import (
 	tokenmanager "auth-service/internal/services/TokenManager"
 	"auth-service/internal/utils/jwt"
 	"context"
+	"log"
 	"time"
 )
 
@@ -21,16 +22,23 @@ type UserService interface {
 }
 
 type userService struct {
-	userRepo     repo.UserRepository
-	jwtService   jwt.JWTService
-	tokenManager tokenmanager.TokenManager
+	userRepo       repo.UserRepository
+	jwtService     jwt.JWTService
+	tokenManager   tokenmanager.TokenManager
+	eventPublisher EventPublisher
 }
 
-func NewUserService(userRepo repo.UserRepository, jwtService jwt.JWTService, tokenManager tokenmanager.TokenManager) UserService {
+func NewUserService(
+	userRepo repo.UserRepository,
+	jwtService jwt.JWTService,
+	tokenManager tokenmanager.TokenManager,
+	eventPublisher EventPublisher,
+) UserService {
 	return &userService{
-		userRepo:     userRepo,
-		jwtService:   jwtService,
-		tokenManager: tokenManager,
+		userRepo:       userRepo,
+		jwtService:     jwtService,
+		tokenManager:   tokenManager,
+		eventPublisher: eventPublisher,
 	}
 }
 
@@ -86,6 +94,11 @@ func (s *userService) Register(ctx context.Context, req *dto.UserCreateRequest) 
 	createdUser, err := s.userRepo.Create(ctx, user)
 	if err != nil {
 		return nil, err
+	}
+
+	// Publish user registered event (non-blocking, only log warning on failure)
+	if err := s.eventPublisher.PublishUserRegistered(ctx, createdUser); err != nil {
+		log.Printf("[WARN] Failed to publish user.registered event: %v", err)
 	}
 
 	return createdUser, nil

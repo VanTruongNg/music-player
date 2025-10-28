@@ -11,7 +11,7 @@ import (
 var snowflakeNode *snowflake.Node
 
 func init() {
-	node, err := snowflake.NewNode(2) // Node ID = 2 for auth-service
+	node, err := snowflake.NewNode(2)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create snowflake node: %v", err))
 	}

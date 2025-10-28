@@ -39,7 +39,12 @@ func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg 
 	client := redis.NewRedisClient(redisCfg)
 	redisUtil := provideRedisUtil(client)
 	tokenManager := provideTokenManager(jwtService, redisUtil)
-	userService := services.NewUserService(userRepository, jwtService, tokenManager)
+	producerProducer, err := producer.NewProducer(kafkaCfg)
+	if err != nil {
+		return nil, err
+	}
+	eventPublisher := services.NewEventPublisher(producerProducer)
+	userService := services.NewUserService(userRepository, jwtService, tokenManager, eventPublisher)
 	userHandler := handlers.NewUserHandler(userService)
 	twoFAUtil := provideTwoFAUtil()
 	twoFAService := services.NewTwoFAService(userRepository, twoFAUtil, redisUtil)
@@ -48,10 +53,6 @@ func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg 
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, redisUtil)
 	engine := provideRouter(userHandler, twoFAHandler, jwksHandler, authMiddleware)
 	grpcServer, err := provideGRPCServer(appCfg)
-	if err != nil {
-		return nil, err
-	}
-	producerProducer, err := producer.NewProducer(kafkaCfg)
 	if err != nil {
 		return nil, err
 	}
