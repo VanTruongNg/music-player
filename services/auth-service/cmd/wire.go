@@ -54,6 +54,7 @@ func InitializeApp(appCfg *configs.AppConfig, dbCfg *configs.DBConfig, redisCfg 
 		provideTokenManager,
 
 		// Services
+		services.NewEventPublisher,
 		services.NewUserService,
 		services.NewTwoFAService,
 
