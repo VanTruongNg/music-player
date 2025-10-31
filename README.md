@@ -56,7 +56,8 @@ music-player/
 - JWT with EdDSA (Ed25519) for access tokens, HS256 for refresh tokens
 - JWKS endpoint for public key distribution
 - gRPC server for inter-service communication
-- Kafka producer for user lifecycle events
+- Kafka producer with EventPublisher service (SOLID architecture)
+- Automatic JWT key rotation support
 
 **Tech Stack**: Go 1.25, Gin, GORM, Google Wire, PostgreSQL, Redis, Kafka (franz-go)
 
@@ -64,8 +65,16 @@ music-player/
 
 - `POST /api/v1/auth/register` - User registration
 - `POST /api/v1/auth/login` - User login
-- `POST /api/v1/2fa/setup` - Enable 2FA
+- `GET /api/v1/auth/users` - Get all users (protected)
+- `GET /api/v1/auth/users/:id` - Get user by ID (protected)
+- `GET /api/v1/auth/me` - Get current user (protected)
+- `POST /api/v1/auth/:id/2fa/setup` - Setup 2FA (protected)
+- `POST /api/v1/auth/:id/2fa/enable` - Enable 2FA (protected)
+- `POST /api/v1/auth/:id/2fa/verify` - Verify 2FA OTP (protected)
+- `POST /api/v1/auth/:id/2fa/disable` - Disable 2FA (protected)
 - `GET /api/v1/.well-known/jwks.json` - JWKS public keys
+
+**Documentation**: [Auth Service README](services/auth-service/README.md)
 
 ### 🚪 Gateway (Port 3000)
 
@@ -78,7 +87,7 @@ music-player/
 - gRPC client for auth-service communication
 - Request/response transformation
 - Authentication middleware with Redis session validation
-- Rate limiting & request logging
+- Connection pooling for high performance
 
 **Tech Stack**: Go 1.25, Gin, gRPC client, Redis, Google Wire
 
@@ -86,8 +95,16 @@ music-player/
 
 - `POST /api/v1/auth/login` - Proxied login
 - `POST /api/v1/auth/register` - Proxied registration
+- `POST /api/v1/auth/refresh` - Refresh access token
+- `POST /api/v1/auth/logout` - Logout (protected)
+- `GET /api/v1/auth/validate` - Validate token (protected)
+- `POST /api/v1/2fa/setup` - Setup 2FA (protected)
+- `POST /api/v1/2fa/enable` - Enable 2FA (protected)
+- `POST /api/v1/2fa/verify` - Verify 2FA OTP (protected)
+- `POST /api/v1/2fa/disable` - Disable 2FA (protected)
 - `GET /api/v1/users` - Get user profile (protected)
-- `POST /api/v1/2fa/*` - 2FA management (protected)
+
+**Documentation**: [Gateway README](services/gateway/README.md)
 
 ### 📬 Notification Service (Port 8082)
 
@@ -95,17 +112,23 @@ music-player/
 
 **Features**:
 
-- Kafka consumer for event-driven architecture
-- Process user lifecycle events (registration, login, etc.)
+- High-performance Kafka producer (100k-1M msg/s)
+- Three producer profiles: Balanced, Safe, Fast
+- Standard message envelope with Snowflake IDs (Node 3)
+- Event validation and serialization
+- Kafka consumer implementation (planned)
 - Email/SMS notification support (planned)
 - Async task processing
 
 **Tech Stack**: Go 1.25, Gin, Kafka (franz-go), Google Wire
 
-**Events Consumed**:
+**Topics**:
 
-- `user.registered` - User registration notifications
-- (More events to be added)
+- `user.registered` - User registration events
+- `user.updated` - User profile updates (planned)
+- `user.deleted` - User deletion events (planned)
+
+**Documentation**: [Notification Service README](services/notification-service/README.md)
 
 ## Infrastructure Components
 
