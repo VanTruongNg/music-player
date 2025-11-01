@@ -19,97 +19,159 @@
 
 ## Quick Start
 
-```bash
-# 1. Start supporting services
-cd auth-service
-# Use PowerShell:
-docker compose up -d
+# Auth Service
 
-# 2. Set up environment variables (.env)
-# Copy from .env.example and edit if needed
-cp .env.example .env
+## Overview
 
-# 3. Run migration (if using goose)
-# goose up
+Auth Service is the authentication and user management microservice for the Music Player system. It provides user registration, login, JWT issuance, 2FA (TOTP), session management (Redis), and publishes user lifecycle events to Kafka.
 
-# 4. Build & run the service
-# (Requires Go >= 1.20)
-go mod tidy
+This README documents the current, implemented features only (no planned items). For architecture-level docs see the repo-level README.
+
+## What exists in the codebase
+
+- HTTP API implemented with Gin
+- gRPC server for inter-service calls (used by the Gateway)
+- JWT signing using Ed25519 for access tokens and HS256 for refresh tokens
+- JWKS endpoint to expose public keys
+- 2FA TOTP setup and verification
+- Redis-backed refresh token/session management
+- Kafka producer integration with an `EventPublisher` service (sync publish supported)
+- Google Wire for dependency injection
+
+## Repository layout (relevant folders)
+
+```
+services/auth-service/
+├── cmd/                  # entry point, wire setup
+├── configs/              # app, db, redis, kafka configs
+├── internal/
+│   ├── handlers/         # HTTP handlers
+│   ├── repositories/     # GORM repositories
+│   ├── services/         # business logic (UserService, TwoFA, EventPublisher)
+│   ├── kafka/            # envelope, producer integration
+│   └── utils/            # jwt, redis helpers
+├── migrations/           # DB migrations (goose)
+├── Dockerfile
+└── README.md
+```
+
+## Available endpoints (as implemented)
+
+Base path: `/api/v1`
+
+Auth and user routes (in `internal/routes` and `handlers`):
+
+- POST `/api/v1/auth/register` - register a new user (public)
+- POST `/api/v1/auth/login` - login and get access+refresh tokens (public)
+- POST `/api/v1/auth/refresh` - exchange refresh token for new access token (public)
+- POST `/api/v1/auth/logout` - logout, revoke session (protected)
+- GET `/api/v1/auth/validate` - validate current token (protected)
+
+2FA management (protected, require auth middleware):
+
+- POST `/api/v1/auth/:id/2fa/setup` - generate TOTP secret / QR data
+- POST `/api/v1/auth/:id/2fa/enable` - enable 2FA with OTP
+- POST `/api/v1/auth/:id/2fa/verify` - verify OTP
+- POST `/api/v1/auth/:id/2fa/disable` - disable 2FA
+
+User management (protected):
+
+- GET `/api/v1/auth/users` - list users (requires appropriate permissions)
+- GET `/api/v1/auth/users/:id` - get user by ID
+- GET `/api/v1/auth/me` - get current authenticated user
+
+JWKS endpoint:
+
+- GET `/.well-known/jwks.json` - JWKS public keys for verifying access tokens
+
+Notes:
+
+- Routes and handlers are implemented under `internal/routes` and `internal/handlers`.
+
+## Event publishing
+
+The codebase contains an `EventPublisher` service (in `internal/services`) that encapsulates Kafka publishing logic. The `UserService` calls this service after a successful registration to publish a `user.registered` event. The envelope format, serializer, and producer profiles live under `internal/kafka`.
+
+Published topic:
+
+- `user.registered` (JSON envelope)
+
+Producer behavior:
+
+- The project provides sync (`Publish`) and async (`PublishAsync`) publishing APIs. Current production code uses synchronous publish for reliability (errors are handled and logged).
+
+## Configuration
+
+Environment variables are loaded via Viper. Key variables (see `configs/`):
+
+- `APP_PORT` - HTTP port (default: 8080)
+- `KAFKA_BROKERS` - comma-separated list of brokers
+- `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
+- `POSTGRES_*` - database connection
+
+Use the top-level `.env.example` as a template.
+
+## Quick start (development)
+
+1. Start infra (Postgres, Redis, Kafka):
+
+```powershell
+cd \\path\\to\\music-player
+docker compose up -d postgres redis-stack zookeeper kafka
+```
+
+2. Prepare .env for auth-service:
+
+```powershell
+cd services/auth-service
+cp ..\\.env.example .env
+# Edit .env if needed
+```
+
+3. Run DB migrations (goose):
+
+```powershell
+docker compose up migration
+# or locally (requires goose installed):
+goose -dir migrations postgres "postgres://postgres:postgres123@localhost:5432/music_player?sslmode=disable" up
+```
+
+4. Run the service locally:
+
+```powershell
+cd services/auth-service
+go mod download
 go run ./cmd
 ```
 
-## API Features
+The HTTP server will listen on the port defined in your `.env` (default 8080). The gRPC server listens on a separate port defined in configs (default 8081).
 
-- Register, login, JWT authentication
-- Session management with refresh tokens stored in Redis
-- Enable and verify 2FA (TOTP)
-- Standardized RESTful API, clear error responses
+## Development notes
 
-## Mermaid Diagrams
+- Dependency injection uses Google Wire. If you modify `cmd/wire.go`, regenerate with:
 
-### Flowchart
-
-```mermaid
-flowchart TD
-    A[Client] -->|Register/Login| B[Auth Service]
-    B -->|JWT/Refresh Token| A
-    B -->|2FA Setup/Verify| C[2FA Service]
-    B -->|Store session| D[Redis]
-    B -->|Store user| E[PostgreSQL]
+```powershell
+cd services/auth-service
+go run github.com/google/wire/cmd/wire@latest ./cmd
 ```
 
-### Component Diagram
+- The `EventPublisher` is injected into `UserService` via Wire. This makes it easy to swap a mock implementation for unit tests.
 
-```mermaid
-graph TD
-    Client --> AuthService
-    AuthService --> PostgreSQL
-    AuthService --> Redis
-    AuthService --> Kafka
-    AuthService --> TwoFAUtil
-```
+- Token signing keys are stored under `infra/jwt/` in the monorepo; key rotation scripts are available in `infra/scripts`.
 
-### Sequence Diagram
+## Troubleshooting
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant AuthService
-    participant Redis
-    participant PostgreSQL
-    Client->>AuthService: Login
-    AuthService->>PostgreSQL: Check user
-    AuthService->>Redis: Store refresh token
-    AuthService-->>Client: JWT, Refresh Token
-    Client->>AuthService: Enable 2FA
-    AuthService->>TwoFAUtil: Generate secret, OTP URL
-    AuthService-->>Client: Return OTP URL
-```
+- `500` on register/login: check Postgres connection and migrations
+- Kafka publish warnings: check `KAFKA_BROKERS` and broker health; verify topic exists (`user.registered`)
+- JWT verification issues: ensure JWKS endpoint is reachable and keys are present in `infra/jwt/public`
 
-### JWT Signing Flow
+## Where to look in the code
 
-```mermaid
-flowchart TD
-    A[Generate Tokens] --> B{Token Type}
-    B -->|Access Token| C[Load Ed25519 Private Key]
-    B -->|Refresh Token| D[Use HS256 Secret]
-    C --> E[Sign with EdDSA]
-    D --> F[Sign with HS256]
-    E --> G[Set KID in Header]
-    F --> H[Set KID in Header]
-    G --> I[Return Signed Token]
-    H --> I
-    I --> J[Optional: Rotate Keys]
-    J --> K[Call rotate_jwt_key.sh]
-    K --> L[Update JWKS]
-```
-
-## Development Notes
-
-- Standardized code, clear module separation, easy to extend
-- Uses DI (Google Wire), Gin, GORM, Viper, Goose, JWT, Redis, Kafka
-- Ensures DRY, SOLID, Separation of Concerns
-- Includes migration, .env example, docker-compose
+- Routes: `internal/routes`
+- Handlers: `internal/handlers`
+- Business logic: `internal/services`
+- Kafka envelope & producer: `internal/kafka`
+- Configs: `configs`
 
 ## Contact
 
@@ -118,4 +180,4 @@ flowchart TD
 
 ---
 
-_Please read the code and documentation carefully before deploying. Contributions, issues, and PRs are always welcome!_
+_This README documents features present in the code as of this change._
