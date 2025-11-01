@@ -148,15 +148,12 @@ music-player/
 
 ### Apache Kafka (Port 9092)
 
-- Event streaming platform
+- Event streaming platform with **KRaft mode** (no ZooKeeper dependency)
+- Built-in consensus protocol for metadata management
 - 3 partitions per topic for parallelism
 - 7-day retention policy
 - Kafka UI on port 8080
-
-### Zookeeper (Port 2181)
-
-- Kafka cluster coordination
-- Distributed configuration management
+- Controller quorum for cluster coordination
 
 ## Technologies Used
 
@@ -174,8 +171,8 @@ music-player/
 ### Infrastructure
 
 - **Databases**: PostgreSQL 16, Redis Stack 7
-- **Message Queue**: Apache Kafka 3.x + Zookeeper
-- **Containerization**: Docker Compose with resource limits
+- **Message Queue**: Apache Kafka 3.3+ with KRaft (ZooKeeper-free)
+- **Containerization**: Docker Compose with resource limits, security hardening
 - **Monitoring**: JSON logging, health checks, PgAdmin, RedisInsight, Kafka UI
 
 ### DevOps
@@ -212,15 +209,29 @@ cp .env.example .env
 
 ### 3. Start Infrastructure
 
+**Option A: Infrastructure Only (Development)**
+
 ```bash
-# Start all infrastructure services (Postgres, Redis, Kafka, Zookeeper)
-docker compose up -d postgres redis-stack kafka zookeeper
+# Start all infrastructure services (Postgres, Redis, Kafka)
+docker compose up -d
 
 # Wait for services to be healthy (~30 seconds)
 docker compose ps
 
 # Check logs
 docker compose logs -f
+```
+
+**Option B: Full Stack (Production-like Testing)**
+
+```bash
+# Build and start everything (infrastructure + services)
+docker compose -f docker-compose.full.yml up -d --build
+
+# Check all services
+docker compose -f docker-compose.full.yml ps
+
+# See QUICKSTART.md for more details
 ```
 
 ### 4. Run Database Migration
@@ -236,7 +247,10 @@ goose -dir migrations postgres "postgres://postgres:postgres123@localhost:5432/m
 
 ### 5. Start Services
 
-**Option A: Run with Go (Development)**
+> **Note**: This step is only needed for **Option A** (Infrastructure Only).
+> If you used **Option B** (Full Stack), skip this - services are already running!
+
+**Run with Go (Local Development)**
 
 ```bash
 # Terminal 1: Auth Service
@@ -255,7 +269,7 @@ go mod download
 go run ./cmd
 ```
 
-**Option B: Build Docker Images (Production)**
+**Or Build Docker Images (Production)**
 
 ```bash
 # Build all services
@@ -631,6 +645,14 @@ footer (optional)
 Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 Example: `feat(auth): add OAuth2 Google login support`
+
+## 📚 Documentation
+
+- [**QUICKSTART.md**](./QUICKSTART.md) - Get started in 3 commands
+- [**DOCKER-FULL.md**](./DOCKER-FULL.md) - Full stack deployment guide
+- [**Auth Service**](./services/auth-service/README.md) - Authentication API endpoints
+- [**Gateway**](./services/gateway/README.md) - API Gateway configuration
+- [**Notification Service**](./services/notification-service/README.md) - Event handling
 
 ## License
 

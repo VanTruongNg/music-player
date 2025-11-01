@@ -1,5 +1,3 @@
-version: '3.8'
-
 # YAML anchors for DRY configuration
 x-logging: &default-logging
   driver: "json-file"
@@ -100,6 +98,7 @@ services:
       - postgres_data:/var/lib/postgresql/data:Z
     networks:
       - music-player-internal
+      - music-player-public
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -154,67 +153,68 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  zookeeper:
-    image: confluentinc/cp-zookeeper:latest
-    container_name: music-player-zookeeper
-    restart: unless-stopped
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-      ZOOKEEPER_SYNC_LIMIT: 2
-      ZOOKEEPER_INIT_LIMIT: 5
-    ports:
-      - "2181:2181"
-    volumes:
-      - zookeeper_data:/var/lib/zookeeper/data:Z
-    networks:
-      - music-player-internal
-    healthcheck:
-      test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep imok || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-
+  # Kafka with KRaft (no ZooKeeper needed)
   kafka:
     image: confluentinc/cp-kafka:latest
     container_name: music-player-kafka
     restart: unless-stopped
-    depends_on:
-      - zookeeper
     ports:
       - "9092:9092"
+      - "9093:9093"
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # KRaft mode configuration
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      
+      # Listeners
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://kafka:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      
+      # Cluster ID (generated with kafka-storage random-uuid)
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+      
+      # Storage
+      KAFKA_LOG_DIRS: '/var/lib/kafka/data'
+      
+      # Topic defaults
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_NUM_PARTITIONS: 3
+      
+      # Retention
       KAFKA_LOG_RETENTION_HOURS: 168
       KAFKA_LOG_SEGMENT_BYTES: 1073741824
-      KAFKA_NUM_PARTITIONS: 3
+      
+      # Performance
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
     volumes:
       - kafka_data:/var/lib/kafka/data:Z
     networks:
       - music-player-internal
+      - music-player-public
+    command: >
+      bash -c "
+        # Format storage if not already formatted
+        if [ ! -f /var/lib/kafka/data/meta.properties ]; then
+          echo 'Formatting Kafka storage for KRaft mode...'
+          kafka-storage format -t MkU3OEVBNTcwNTJENDM2Qk -c /etc/kafka/kafka.properties
+        fi
+        
+        # Start Kafka
+        /etc/confluent/docker/run
+      "
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:29092 --list >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 10s
-      retries: 8
+      retries: 10
+      start_period: 40s
     security_opt:
       - no-new-privileges:true
     logging:
@@ -236,13 +236,14 @@ services:
     container_name: music-player-kafka-ui
     restart: unless-stopped
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      # No ZooKeeper needed in KRaft mode
       DYNAMIC_CONFIG_ENABLED: 'true'
       AUTH_TYPE: "DISABLED"
     networks:
@@ -255,105 +256,22 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-  auth-service:
-    build:
-      context: ./auth-service
-      dockerfile: Dockerfile
-      args:
-        VERSION: ${VERSION:-dev}
-        BUILD_TIME: "${BUILD_TIME}"
-        COMMIT_SHA: "${COMMIT_SHA}"
-        TARGETOS: linux
-        TARGETARCH: amd64
-    image: music-player/auth-service:${VERSION:-latest}
-    container_name: music-player-auth
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis-stack:
-        condition: service_started
-      kafka:
-        condition: service_healthy
-      migration:
-        condition: service_completed_successfully
-    ports:
-      - "3001:3001"
-      - "50052:50052"
-    env_file:
-      - ./auth-service/.env
-    environment:
-      - SERVICE_NAME=auth-service
-      - SERVICE_VERSION=${VERSION:-latest}
-      - ENVIRONMENT=${ENVIRONMENT:-development}
-    networks:
-      - music-player-internal
-      - music-player-public
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "auth-service|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '1.0'
-        reservations:
-          memory: 256M
-          cpus: '0.5'
-
-  gateway:
-    build:
-      context: ./gateway
-      dockerfile: Dockerfile
-      args:
-        VERSION: ${VERSION:-dev}
-        BUILD_TIME: "${BUILD_TIME}"
-        COMMIT_SHA: "${COMMIT_SHA}"
-        TARGETOS: linux
-        TARGETARCH: amd64
-    image: music-player/gateway:${VERSION:-latest}
-    container_name: music-player-gateway
-    restart: unless-stopped
-    depends_on:
-      - auth-service
-    # 🎯 Port từ gateway/.env: APP_PORT=3000
-    ports:
-      - "3000:3000"      # Gateway HTTP
-    env_file:
-      - ./gateway/.env
-    environment:
-      - SERVICE_NAME=gateway
-      - SERVICE_VERSION=${VERSION:-latest}
-      - ENVIRONMENT=${ENVIRONMENT:-development}
-      - AUTH_SERVICE_ENDPOINT=auth-service:50052
-    networks:
-      - music-player-internal
-      - music-player-public
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "gateway|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '0.5'
-        reservations:
-          memory: 128M
-          cpus: '0.25'
+  
+  # Services commented out - run locally with `go run ./cmd`
+  # auth-service:
+  #   build:
+  #     context: ./services/auth-service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3001:3001"
+  #     - "50052:50052"
+  
+  # gateway:
+  #   build:
+  #     context: ./services/gateway
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3000:3000"
 
 volumes:
   postgres_data:
@@ -368,12 +286,6 @@ volumes:
       type: none
       o: bind
       device: ${DATA_PATH:-./data}/redis
-  zookeeper_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${DATA_PATH:-./data}/zookeeper
   kafka_data:
     driver: local
     driver_opts:
